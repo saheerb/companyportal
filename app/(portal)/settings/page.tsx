@@ -2,6 +2,131 @@
 
 import { useEffect, useState } from "react";
 
+// ─── Scraper Settings ──────────────────────────────────────────────────────────
+type ScraperSettings = {
+  SCRAPE_POSTCODE: string;
+  SCRAPE_RADIUS: string;
+  SCRAPE_MAX_PAGES: string;
+  SCRAPE_MAX_PRICE: string;
+  SCRAPE_MAX_MILEAGE: string;
+};
+
+function ScraperSettingsSection() {
+  const [form, setForm] = useState<ScraperSettings>({
+    SCRAPE_POSTCODE: "",
+    SCRAPE_RADIUS: "",
+    SCRAPE_MAX_PAGES: "",
+    SCRAPE_MAX_PRICE: "",
+    SCRAPE_MAX_MILEAGE: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/scraper-settings")
+      .then((r) => r.json())
+      .then((data) => { setForm(data); setLoading(false); });
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    await fetch("/api/scraper-settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  const f = (key: keyof ScraperSettings) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm({ ...form, [key]: e.target.value });
+
+  return (
+    <div className="mt-10">
+      <h2 className="text-xl font-bold text-gray-900 mb-1">AutoTrader Scraper Settings</h2>
+      <p className="text-sm text-gray-500 mb-4">These are read by carhunt at the start of each scrape run.</p>
+
+      {loading ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse space-y-3">
+          {[...Array(5)].map((_, i) => <div key={i} className="h-9 bg-gray-100 rounded" />)}
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Postcode</label>
+              <input
+                type="text"
+                value={form.SCRAPE_POSTCODE}
+                onChange={f("SCRAPE_POSTCODE")}
+                placeholder="e.g. CB19PB"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Radius (miles)</label>
+              <input
+                type="number"
+                min="1"
+                value={form.SCRAPE_RADIUS}
+                onChange={f("SCRAPE_RADIUS")}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Max Price (£)</label>
+              <input
+                type="number"
+                min="0"
+                value={form.SCRAPE_MAX_PRICE}
+                onChange={f("SCRAPE_MAX_PRICE")}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Max Mileage</label>
+              <input
+                type="number"
+                min="0"
+                value={form.SCRAPE_MAX_MILEAGE}
+                onChange={f("SCRAPE_MAX_MILEAGE")}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Max Pages per Run</label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={form.SCRAPE_MAX_PAGES}
+                onChange={f("SCRAPE_MAX_PAGES")}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={saving}
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 font-medium"
+            >
+              {saving ? "Saving…" : "Save Settings"}
+            </button>
+            {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
 type User = {
   id: number;
   username: string;
@@ -167,6 +292,8 @@ export default function SettingsPage() {
       </div>
 
       {showModal && <AddUserModal onClose={() => setShowModal(false)} onSaved={load} />}
+
+      <ScraperSettingsSection />
     </div>
   );
 }
