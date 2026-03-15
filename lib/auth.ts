@@ -27,7 +27,7 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  pages: { signIn: "/login", error: "/auth-error" },
   providers: [
     CredentialsProvider({
       name: "Credentials",
