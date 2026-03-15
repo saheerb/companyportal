@@ -10,6 +10,7 @@ const navItems = [
   { href: "/inventory", label: "Inventory", icon: "🚗" },
   { href: "/finance", label: "Finance", icon: "💰" },
   { href: "/records", label: "Records", icon: "📁" },
+  { href: "/settings", label: "Settings", icon: "⚙️" },
 ];
 
 export default function Sidebar() {
