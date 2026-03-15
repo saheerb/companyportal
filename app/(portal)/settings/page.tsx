@@ -9,6 +9,8 @@ type ScraperSettings = {
   SCRAPE_MAX_PAGES: string;
   SCRAPE_MAX_PRICE: string;
   SCRAPE_MAX_MILEAGE: string;
+  AUTOTRADER_EMAIL: string;
+  AUTOTRADER_PASSWORD: string;
 };
 
 function ScraperSettingsSection() {
@@ -18,6 +20,8 @@ function ScraperSettingsSection() {
     SCRAPE_MAX_PAGES: "",
     SCRAPE_MAX_PRICE: "",
     SCRAPE_MAX_MILEAGE: "",
+    AUTOTRADER_EMAIL: "",
+    AUTOTRADER_PASSWORD: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -108,6 +112,32 @@ function ScraperSettingsSection() {
                 onChange={f("SCRAPE_MAX_PAGES")}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
+            </div>
+          </div>
+
+          <div className="border-t pt-4 mt-2">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">AutoTrader Login (for phone numbers)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+                <input
+                  type="email"
+                  value={form.AUTOTRADER_EMAIL}
+                  onChange={f("AUTOTRADER_EMAIL")}
+                  placeholder="your@email.com"
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Password</label>
+                <input
+                  type="password"
+                  value={form.AUTOTRADER_PASSWORD}
+                  onChange={f("AUTOTRADER_PASSWORD")}
+                  placeholder="••••••••"
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 

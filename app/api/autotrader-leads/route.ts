@@ -70,13 +70,18 @@ export async function PATCH(req: NextRequest) {
   }
 
   // Field updates
-  const allowed = ["status", "notes", "activity_log", "phone", "wbac_price", "auction_price", "retail_price"];
+  const allowed = ["status", "notes", "activity_log", "phone", "wbac_price", "auction_price", "retail_price", "reg"];
+  const numeric = new Set(["wbac_price", "auction_price", "retail_price"]);
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;
 
   for (const key of allowed) {
-    if (key in fields) { sets.push(`${key} = $${idx++}`); vals.push(fields[key]); }
+    if (key in fields) {
+      const val = numeric.has(key) && fields[key] === "" ? null : fields[key];
+      sets.push(`${key} = $${idx++}`);
+      vals.push(val);
+    }
   }
   if (!sets.length) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 

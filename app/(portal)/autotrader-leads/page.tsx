@@ -19,6 +19,7 @@ type CarLead = {
   wbac_price: number | null;
   auction_price: number | null;
   retail_price: number | null;
+  reg: string | null;
   scraped_at: string;
 };
 
@@ -68,6 +69,7 @@ function EditModal({ lead, onClose, onSaved }: { lead: CarLead; onClose: () => v
     status: lead.status || "New",
     notes: lead.notes ?? "",
     phone: lead.phone ?? "",
+    reg: lead.reg ?? "",
     wbac_price: lead.wbac_price ?? "",
     auction_price: lead.auction_price ?? "",
     retail_price: lead.retail_price ?? "",
@@ -122,6 +124,25 @@ function EditModal({ lead, onClose, onSaved }: { lead: CarLead; onClose: () => v
             <input type="text" value={form.phone} onChange={f("phone")}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               placeholder="e.g. 07700 900123" />
+          </div>
+
+          {/* Reg plate */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Reg Plate</label>
+            <div className="flex gap-2">
+              <input type="text" value={form.reg} onChange={f("reg")}
+                className="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none uppercase"
+                placeholder="e.g. AB12CDE" />
+              {form.reg && (
+                <a
+                  href={`https://www.webuyanycar.com/car-valuation/?vrm=${form.reg.replace(/\s/g, "")}&mileage=${lead.mileage ?? ""}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="shrink-0 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 font-medium whitespace-nowrap"
+                >
+                  Check WBAC →
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Valuations */}
@@ -326,10 +347,26 @@ function CarLeadCard({ lead: initialLead, onUpdate }: { lead: CarLead; onUpdate:
           {lead.seller_name && (
             <p className="text-xs text-gray-500 mb-1">Seller: <span className="font-medium text-gray-700">{lead.seller_name}</span></p>
           )}
-          {lead.phone
-            ? <a href={`tel:${lead.phone}`} className="text-sm text-blue-600 hover:underline font-medium">{lead.phone}</a>
-            : <p className="text-xs text-gray-300 italic">No phone — add via Edit</p>
-          }
+          <div className="flex items-center justify-between gap-3">
+            {lead.phone
+              ? <a href={`tel:${lead.phone}`} className="text-sm text-blue-600 hover:underline font-medium">{lead.phone}</a>
+              : <p className="text-xs text-gray-300 italic">No phone — add via Edit</p>
+            }
+            {lead.reg && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="font-mono text-xs font-bold bg-yellow-300 text-black px-2 py-0.5 rounded border border-yellow-500">
+                  {lead.reg}
+                </span>
+                <a
+                  href={`https://www.webuyanycar.com/car-valuation/?vrm=${lead.reg.replace(/\s/g, "")}&mileage=${lead.mileage ?? ""}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-green-600 hover:underline font-medium"
+                >
+                  WBAC →
+                </a>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Valuations */}

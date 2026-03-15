@@ -9,6 +9,8 @@ const DEFAULTS: Record<string, string> = {
   SCRAPE_MAX_PAGES: "5",
   SCRAPE_MAX_PRICE: "12000",
   SCRAPE_MAX_MILEAGE: "60000",
+  AUTOTRADER_EMAIL: "",
+  AUTOTRADER_PASSWORD: "",
 };
 
 async function ensureTable() {
