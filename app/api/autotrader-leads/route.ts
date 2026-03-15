@@ -4,9 +4,36 @@ import { authOptions } from "@/lib/auth";
 import pool from "@/lib/db";
 import { randomUUID } from "crypto";
 
+async function ensureTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS car_leads (
+      id            SERIAL PRIMARY KEY,
+      scraped_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      listing_id    TEXT UNIQUE NOT NULL,
+      listing_url   TEXT,
+      car_name      TEXT,
+      year          INTEGER,
+      mileage       INTEGER,
+      price         NUMERIC,
+      seller_name   TEXT,
+      phone         TEXT,
+      location      TEXT,
+      status        TEXT DEFAULT 'New',
+      notes         TEXT,
+      activity_log  TEXT,
+      wbac_price    NUMERIC,
+      auction_price NUMERIC,
+      retail_price  NUMERIC,
+      reg           TEXT
+    )
+  `);
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  await ensureTable();
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") ?? "";
