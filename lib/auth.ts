@@ -41,6 +41,17 @@ export const authOptions: NextAuthOptions = {
           log("missing credentials");
           return null;
         }
+
+        // Check against ADMIN_USERNAME / ADMIN_PASSWORD env vars (same as happycardeals)
+        const adminUsername = process.env.ADMIN_USERNAME ?? "admin";
+        const adminPassword = process.env.ADMIN_PASSWORD;
+        if (adminPassword && credentials.username === adminUsername && credentials.password === adminPassword) {
+          log("env-var admin login ok");
+          return { id: "admin", name: adminUsername, email: adminUsername };
+        }
+        log("env-var check failed, trying db");
+
+        // Fallback: check users table (for any DB-stored users with password_hash)
         let rows;
         try {
           ({ rows } = await pool.query(
@@ -53,7 +64,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
         const user = rows[0];
-        if (!user) { log("user not found"); return null; }
+        if (!user) { log("user not found in db"); return null; }
         if (!user.password_hash) { log("user has no password_hash"); return null; }
         const valid = await verifyPassword(credentials.password, user.password_hash);
         log("password valid:", valid);
