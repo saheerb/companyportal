@@ -16,6 +16,9 @@ type CarLead = {
   status: string;
   notes: string | null;
   activity_log: string | null;
+  wbac_price: number | null;
+  auction_price: number | null;
+  retail_price: number | null;
   scraped_at: string;
 };
 
@@ -64,6 +67,10 @@ function EditModal({ lead, onClose, onSaved }: { lead: CarLead; onClose: () => v
   const [form, setForm] = useState({
     status: lead.status || "New",
     notes: lead.notes ?? "",
+    phone: lead.phone ?? "",
+    wbac_price: lead.wbac_price ?? "",
+    auction_price: lead.auction_price ?? "",
+    retail_price: lead.retail_price ?? "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -109,6 +116,34 @@ function EditModal({ lead, onClose, onSaved }: { lead: CarLead; onClose: () => v
             </select>
           </div>
 
+          {/* Phone */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Phone</label>
+            <input type="text" value={form.phone} onChange={f("phone")}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              placeholder="e.g. 07700 900123" />
+          </div>
+
+          {/* Valuations */}
+          <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Valuations</p>
+            <div className="grid grid-cols-3 gap-3">
+              {([
+                { label: "WBAC (£)", key: "wbac_price" },
+                { label: "Auction (£)", key: "auction_price" },
+                { label: "Retail (£)", key: "retail_price" },
+              ] as { label: string; key: keyof typeof form }[]).map(({ label, key }) => (
+                <div key={key}>
+                  <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                  <input type="number" step="1" value={form[key]} onChange={f(key)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    placeholder="0" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Notes */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Notes</label>
             <textarea value={form.notes} onChange={f("notes")} rows={3}
@@ -291,12 +326,30 @@ function CarLeadCard({ lead: initialLead, onUpdate }: { lead: CarLead; onUpdate:
           {lead.seller_name && (
             <p className="text-xs text-gray-500 mb-1">Seller: <span className="font-medium text-gray-700">{lead.seller_name}</span></p>
           )}
-          {lead.phone && (
-            <a href={`tel:${lead.phone}`} className="text-sm text-blue-600 hover:underline font-medium">
-              {lead.phone}
-            </a>
-          )}
+          {lead.phone
+            ? <a href={`tel:${lead.phone}`} className="text-sm text-blue-600 hover:underline font-medium">{lead.phone}</a>
+            : <p className="text-xs text-gray-300 italic">No phone — add via Edit</p>
+          }
         </div>
+
+        {/* Valuations */}
+        {(lead.wbac_price != null || lead.auction_price != null || lead.retail_price != null) && (
+          <div className="px-4 pb-3">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Valuations</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { label: "WBAC", value: lead.wbac_price },
+                { label: "Auction", value: lead.auction_price },
+                { label: "Retail", value: lead.retail_price },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">{label}</p>
+                  <p className="font-bold text-sm mt-0.5">{fmt(value)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Notes */}
         {lead.notes && (

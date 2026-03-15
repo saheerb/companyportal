@@ -70,7 +70,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   // Field updates
-  const allowed = ["status", "notes", "activity_log"];
+  const allowed = ["status", "notes", "activity_log", "phone", "wbac_price", "auction_price", "retail_price"];
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;
