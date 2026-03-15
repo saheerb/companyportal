@@ -55,14 +55,14 @@ export default function DashboardPage() {
   const monthlyPL = data.monthlyPL as { month: string; income: string; expenses: string }[];
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
         <p className="text-sm text-gray-500 mt-0.5">Overview of your business</p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard title="Leads Today" value={data.leadsToday as number} color="blue" />
         <StatCard title="Pending Offers" value={data.pendingOffers as number} color="yellow" />
         <StatCard title="In Inventory" value={data.inventoryCount as number} color="gray" />
