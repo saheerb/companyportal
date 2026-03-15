@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 
 type Lead = {
   id: number;
@@ -12,168 +11,515 @@ type Lead = {
   car_name: string;
   mileage: number;
   valuation: number;
+  auction_value: number | null;
+  display_auction_value: number | null;
+  trade_retail: number | null;
+  trade_average: number | null;
+  trade_poor: number | null;
+  private_clean: number | null;
+  private_average: number | null;
+  part_exchange: number | null;
+  list_price: number | null;
+  autotrader_price: number | null;
+  motors_price: number | null;
+  wbac_price: number | null;
+  scrap_price: number | null;
   offered_price: number | null;
   status: string;
+  notes: string | null;
+  address: string | null;
+  activity_log: string | null;
   created_at: string;
 };
 
-const STATUSES = ["New", "Offer Sent", "Accepted", "Rejected", "Completed"];
+type LogEntry = { id: string; ts: string; msg: string; note?: string };
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    New: "bg-blue-100 text-blue-700",
-    "Offer Sent": "bg-yellow-100 text-yellow-700",
-    Accepted: "bg-green-100 text-green-700",
-    Rejected: "bg-red-100 text-red-700",
-    Completed: "bg-gray-100 text-gray-700",
-  };
+const STATUS_GROUPS = [
+  {
+    label: "Calling",
+    color: "bg-blue-500",
+    statuses: ["Called - No Answer", "Called - Voicemail Left", "Called - Callback Req."],
+  },
+  {
+    label: "In Progress",
+    color: "bg-amber-500",
+    statuses: ["Contacted", "Offer Made", "Offer Pending"],
+  },
+  {
+    label: "Won",
+    color: "bg-green-600",
+    statuses: ["Offer Accepted", "Sold to Us"],
+  },
+  {
+    label: "Closed",
+    color: "bg-red-500",
+    statuses: ["Offer Declined", "Sold Elsewhere", "Not Worth"],
+  },
+];
+
+const ALL_STATUSES = STATUS_GROUPS.flatMap((g) => g.statuses);
+const CLOSED = ["Offer Declined", "Sold Elsewhere", "Not Worth", "Sold to Us"];
+
+function statusColor(s: string) {
+  if (!s || s === "New") return "bg-gray-500";
+  for (const g of STATUS_GROUPS) {
+    if (g.statuses.includes(s)) return g.color;
+  }
+  return "bg-gray-500";
+}
+
+function fmt(v: number | null | undefined) {
+  if (v == null) return "—";
+  return "£" + Number(v).toLocaleString("en-GB");
+}
+
+function shownToCustomer(lead: Lead) {
+  if (lead.display_auction_value != null) return lead.display_auction_value;
+  if (lead.auction_value != null) return Math.round(Number(lead.auction_value) * 0.75);
+  return null;
+}
+
+// ─── Edit Modal ────────────────────────────────────────────────────────────────
+function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void; onSaved: (updated: Lead) => void }) {
+  const [form, setForm] = useState({
+    status: lead.status || "New",
+    offered_price: lead.offered_price ?? "",
+    notes: lead.notes ?? "",
+    autotrader_price: lead.autotrader_price ?? "",
+    motors_price: lead.motors_price ?? "",
+    wbac_price: lead.wbac_price ?? "",
+    scrap_price: lead.scrap_price ?? "",
+    address: lead.address ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    const res = await fetch("/api/leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: lead.id, ...form }),
+    });
+    const updated = await res.json();
+    setSaving(false);
+    onSaved(updated);
+    onClose();
+  }
+
+  const f = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm({ ...form, [key]: e.target.value });
+
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] ?? "bg-gray-100 text-gray-600"}`}>
-      {status}
-    </span>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-5 border-b flex justify-between items-start">
+          <div>
+            <h3 className="font-bold text-lg">{lead.reg}</h3>
+            <p className="text-sm text-gray-500">{lead.name} · {lead.car_name}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+        </div>
+
+        <form onSubmit={save} className="p-5 space-y-4">
+          {/* Status */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Status</label>
+            <select value={form.status} onChange={f("status")}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="New">New</option>
+              {STATUS_GROUPS.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.statuses.map((s) => <option key={s}>{s}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {/* Offered price */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Offered Price (£)</label>
+            <input type="number" step="1" value={form.offered_price} onChange={f("offered_price")}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              placeholder="0" />
+          </div>
+
+          {/* Competitor prices */}
+          <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Competitor Prices</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Auto Trader", key: "autotrader_price" as const },
+                { label: "Motors", key: "motors_price" as const },
+                { label: "WBAC", key: "wbac_price" as const },
+                { label: "Scrap", key: "scrap_price" as const },
+              ].map(({ label, key }) => (
+                <div key={key}>
+                  <label className="block text-xs text-gray-500 mb-1">{label} (£)</label>
+                  <input type="number" step="1" value={form[key]} onChange={f(key)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    placeholder="0" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Address */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Address</label>
+            <input type="text" value={form.address} onChange={f("address")}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Notes</label>
+            <textarea value={form.notes} onChange={f("notes")} rows={3}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
+            <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50 font-medium">
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
-function fmt(n: number | null) {
-  if (n == null) return "—";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(n);
-}
+// ─── Log Action Modal ──────────────────────────────────────────────────────────
+function LogActionModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void; onSaved: (updated: Lead) => void }) {
+  const [selectedStatus, setSelectedStatus] = useState(lead.status || "New");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
 
-export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [page, setPage] = useState(1);
-
-  const loadLeads = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    if (statusFilter) params.set("status", statusFilter);
-    params.set("page", String(page));
-    const res = await fetch(`/api/leads?${params}`);
-    const data = await res.json();
-    setLeads(data.leads);
-    setTotal(data.total);
-    setLoading(false);
-  }, [search, statusFilter, page]);
-
-  useEffect(() => { loadLeads(); }, [loadLeads]);
-
-  function convertToInventory(lead: Lead) {
-    const params = new URLSearchParams({
-      reg: lead.reg ?? "",
-      car_name: lead.car_name ?? "",
-      mileage_bought: String(lead.mileage ?? ""),
-      purchase_price: String(lead.offered_price ?? lead.valuation ?? ""),
-      lead_id: String(lead.id),
+  async function save() {
+    setSaving(true);
+    const msg = selectedStatus !== lead.status
+      ? `Status changed to "${selectedStatus}"`
+      : "Note added";
+    const res = await fetch("/api/leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: lead.id,
+        status: selectedStatus,
+        log_add: { msg, note: note || undefined },
+      }),
     });
-    window.location.href = `/inventory/new?${params}`;
+    const updated = await res.json();
+    setSaving(false);
+    onSaved(updated);
+    onClose();
   }
 
   return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="p-5 border-b flex justify-between items-center">
+          <h3 className="font-bold">Log Action — {lead.reg}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+        </div>
+        <div className="p-5 space-y-4">
+          {STATUS_GROUPS.map((g) => (
+            <div key={g.label}>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">{g.label}</p>
+              <div className="flex flex-wrap gap-2">
+                {g.statuses.map((s) => (
+                  <button key={s} onClick={() => setSelectedStatus(s)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all ${
+                      selectedStatus === s
+                        ? `${g.color} text-white border-transparent`
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                    }`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Note (optional)</label>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
+              placeholder="Add a note…"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" />
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
+            <button onClick={save} disabled={saving} className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm hover:bg-gray-800 disabled:opacity-50 font-medium">
+              {saving ? "Saving…" : "Log Action"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Lead Card ─────────────────────────────────────────────────────────────────
+function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: Lead) => void }) {
+  const [lead, setLead] = useState(initialLead);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [addNote, setAddNote] = useState(false);
+  const [noteText, setNoteText] = useState("");
+
+  useEffect(() => { setLead(initialLead); }, [initialLead]);
+
+  const log: LogEntry[] = (() => { try { return JSON.parse(lead.activity_log || "[]"); } catch { return []; } })();
+  const shown = shownToCustomer(lead);
+
+  function handleSaved(updated: Lead) { setLead(updated); onUpdate(updated); }
+
+  async function submitNote() {
+    if (!noteText.trim()) return;
+    const res = await fetch("/api/leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: lead.id, log_add: { msg: noteText.trim() } }),
+    });
+    const updated = await res.json();
+    handleSaved(updated);
+    setNoteText("");
+    setAddNote(false);
+  }
+
+  async function deleteLogEntry(entryId: string) {
+    const res = await fetch("/api/leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: lead.id, log_delete: entryId }),
+    });
+    handleSaved(await res.json());
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Card header */}
+        <div className="p-4 pb-3">
+          <div className="flex justify-between items-start mb-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-lg tracking-wide">{lead.reg}</span>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold text-white ${statusColor(lead.status)}`}>
+                {lead.status || "New"}
+              </span>
+            </div>
+            <button onClick={() => setShowEdit(true)}
+              className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 shrink-0 ml-2">
+              Edit
+            </button>
+          </div>
+          <div className="flex justify-between text-sm text-gray-500">
+            <span className="font-medium text-gray-700">{lead.name}</span>
+            <span className="text-xs">{new Date(lead.created_at).toLocaleDateString("en-GB")}</span>
+          </div>
+          <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+            <a href={`mailto:${lead.email}`} className="text-blue-500 hover:underline">{lead.email}</a>
+            {lead.phone && <a href={`tel:${lead.phone}`} className="hover:underline">{lead.phone}</a>}
+          </div>
+          {lead.car_name && (
+            <p className="text-xs text-gray-400 mt-1">
+              {lead.car_name}{lead.mileage ? ` · ${Number(lead.mileage).toLocaleString("en-GB")} mi` : ""}
+            </p>
+          )}
+          {lead.address && <p className="text-xs text-gray-400 mt-0.5">{lead.address}</p>}
+        </div>
+
+        {/* Offered price banner */}
+        {lead.offered_price != null && (
+          <div className="mx-4 mb-3 bg-gray-900 text-white rounded-lg px-3 py-2 flex justify-between items-center">
+            <span className="text-xs uppercase tracking-wide opacity-70">Offered Price</span>
+            <span className="font-bold text-green-400 text-base">{fmt(lead.offered_price)}</span>
+          </div>
+        )}
+
+        {/* Valuations */}
+        <div className="px-4 pb-3">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Valuations</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {[
+              { label: "Shown to Customer", value: shown, highlight: true },
+              { label: "Auction (API)", value: lead.auction_value },
+              { label: "Trade Retail", value: lead.trade_retail },
+              { label: "Trade Avg", value: lead.trade_average },
+              { label: "Trade Poor", value: lead.trade_poor },
+              { label: "Private Clean", value: lead.private_clean },
+              { label: "Private Avg", value: lead.private_average },
+              { label: "Part Exchange", value: lead.part_exchange },
+              { label: "Dealer Retail", value: lead.valuation },
+              { label: "List Price", value: lead.list_price },
+            ].map(({ label, value, highlight }) => (
+              <div key={label} className={`rounded-lg p-2 ${highlight ? "bg-green-50 border border-green-200" : "bg-gray-50"}`}>
+                <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">{label}</p>
+                <p className={`font-bold text-sm mt-0.5 ${highlight ? "text-green-700" : ""}`}>{fmt(value ?? null)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Competitor prices */}
+        {(lead.autotrader_price || lead.motors_price || lead.wbac_price || lead.scrap_price) && (
+          <div className="px-4 pb-3">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Competitor Prices</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { label: "Auto Trader", value: lead.autotrader_price },
+                { label: "Motors", value: lead.motors_price },
+                { label: "WBAC", value: lead.wbac_price },
+                { label: "Scrap", value: lead.scrap_price },
+              ].filter(x => x.value != null).map(({ label, value }) => (
+                <div key={label} className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">{label}</p>
+                  <p className="font-bold text-sm mt-0.5">{fmt(value ?? null)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        {lead.notes && (
+          <div className="mx-4 mb-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg px-3 py-2 text-sm text-gray-600">
+            {lead.notes}
+          </div>
+        )}
+
+        {/* Activity log */}
+        <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Activity Log</p>
+            <button onClick={() => setAddNote(!addNote)} className="text-xs text-blue-600 hover:underline font-medium">
+              + Add Note
+            </button>
+          </div>
+
+          {addNote && (
+            <div className="mb-3 flex gap-2">
+              <input
+                autoFocus
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitNote()}
+                placeholder="Type a note and press Enter…"
+                className="flex-1 border rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+              <button onClick={submitNote} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">Add</button>
+              <button onClick={() => setAddNote(false)} className="text-xs border px-2.5 py-1.5 rounded-lg hover:bg-gray-50">✕</button>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            {log.length === 0 ? (
+              <p className="text-xs text-gray-300 italic">No activity yet</p>
+            ) : (
+              [...log].reverse().map((entry) => (
+                <div key={entry.id} className="flex gap-2 text-xs group">
+                  <span className="text-gray-300 shrink-0 pt-0.5">
+                    {new Date(entry.ts).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="text-gray-600 flex-1">
+                    {entry.msg}{entry.note && <span className="text-gray-400"> — {entry.note}</span>}
+                  </span>
+                  <button onClick={() => deleteLogEntry(entry.id)}
+                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity shrink-0">
+                    ✕
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <button onClick={() => setShowLog(true)}
+            className="mt-3 w-full bg-gray-900 text-white text-xs font-bold py-2 rounded-lg hover:bg-gray-800">
+            Log Action
+          </button>
+        </div>
+      </div>
+
+      {showEdit && <EditModal lead={lead} onClose={() => setShowEdit(false)} onSaved={handleSaved} />}
+      {showLog && <LogActionModal lead={lead} onClose={() => setShowLog(false)} onSaved={handleSaved} />}
+    </>
+  );
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
+export default function LeadsPage() {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [hideClosed, setHideClosed] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    const res = await fetch(`/api/leads?${params}`);
+    setLeads(await res.json());
+    setLoading(false);
+  }, [search]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function handleUpdate(updated: Lead) {
+    setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
+  }
+
+  const visible = hideClosed ? leads.filter((l) => !CLOSED.includes(l.status)) : leads;
+  const closedCount = leads.filter((l) => CLOSED.includes(l.status)).length;
+
+  return (
     <div className="p-4 md:p-8">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Leads</h2>
-          <p className="text-sm text-gray-500">{total} total</p>
+          <p className="text-sm text-gray-500">{visible.length} showing · {leads.length} total</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-5">
+      <div className="flex gap-3 mb-5 flex-wrap items-center">
         <input
           type="text"
           placeholder="Search name, reg, email…"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="border border-gray-300 rounded-md px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onChange={(e) => setSearch(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All statuses</option>
-          {STATUSES.map((s) => <option key={s}>{s}</option>)}
-        </select>
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={hideClosed}
+            onChange={(e) => setHideClosed(e.target.checked)}
+            className="w-4 h-4 cursor-pointer"
+          />
+          Hide closed leads {closedCount > 0 && <span className="text-gray-400">({closedCount})</span>}
+        </label>
       </div>
 
       {loading ? (
-        <div className="animate-pulse space-y-2">
-          {[...Array(8)].map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded" />)}
-        </div>
-      ) : (
-        <>
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 border-b text-left text-gray-500 text-xs">
-                <tr>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Reg</th>
-                  <th className="px-4 py-3">Car</th>
-                  <th className="px-4 py-3">Mileage</th>
-                  <th className="px-4 py-3">Valuation</th>
-                  <th className="px-4 py-3">Offered</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {leads.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-gray-400">No leads found.</td>
-                  </tr>
-                ) : leads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{lead.name}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{lead.reg}</td>
-                    <td className="px-4 py-3 text-gray-500">{lead.car_name}</td>
-                    <td className="px-4 py-3 text-gray-500">{lead.mileage?.toLocaleString()}</td>
-                    <td className="px-4 py-3">{fmt(lead.valuation)}</td>
-                    <td className="px-4 py-3">{fmt(lead.offered_price)}</td>
-                    <td className="px-4 py-3"><StatusBadge status={lead.status} /></td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">
-                      {new Date(lead.created_at).toLocaleDateString("en-GB")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => convertToInventory(lead)}
-                        className="text-xs text-blue-600 hover:underline whitespace-nowrap"
-                      >
-                        → Inventory
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {total > 50 && (
-            <div className="flex gap-2 mt-4 justify-end">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1 text-sm border rounded disabled:opacity-40"
-              >
-                Prev
-              </button>
-              <span className="px-3 py-1 text-sm">{page}</span>
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                disabled={page * 50 >= total}
-                className="px-3 py-1 text-sm border rounded disabled:opacity-40"
-              >
-                Next
-              </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white rounded-xl border p-4 animate-pulse space-y-3">
+              <div className="h-5 bg-gray-200 rounded w-24" />
+              <div className="h-4 bg-gray-100 rounded w-40" />
+              <div className="h-16 bg-gray-100 rounded" />
             </div>
-          )}
-        </>
+          ))}
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">No leads found.</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {visible.map((lead) => (
+            <LeadCard key={lead.id} lead={lead} onUpdate={handleUpdate} />
+          ))}
+        </div>
       )}
     </div>
   );
