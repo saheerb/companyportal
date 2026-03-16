@@ -5,11 +5,6 @@ import { useEffect, useState } from "react";
 // ─── Scraper Settings ──────────────────────────────────────────────────────────
 type ScraperSettings = {
   SCRAPE_SEARCH_URL: string;
-  SCRAPE_POSTCODE: string;
-  SCRAPE_RADIUS: string;
-  SCRAPE_MAX_PAGES: string;
-  SCRAPE_MAX_PRICE: string;
-  SCRAPE_MAX_MILEAGE: string;
   AUTOTRADER_EMAIL: string;
   AUTOTRADER_PASSWORD: string;
 };
@@ -17,11 +12,6 @@ type ScraperSettings = {
 function ScraperSettingsSection() {
   const [form, setForm] = useState<ScraperSettings>({
     SCRAPE_SEARCH_URL: "",
-    SCRAPE_POSTCODE: "",
-    SCRAPE_RADIUS: "",
-    SCRAPE_MAX_PAGES: "",
-    SCRAPE_MAX_PRICE: "",
-    SCRAPE_MAX_MILEAGE: "",
     AUTOTRADER_EMAIL: "",
     AUTOTRADER_PASSWORD: "",
   });
@@ -86,60 +76,6 @@ function ScraperSettingsSection() {
             />
             <p className="text-xs text-gray-400 mt-1">If set, this URL is used as-is (page number appended automatically). Leave blank to use the fields below.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Postcode</label>
-              <input
-                type="text"
-                value={form.SCRAPE_POSTCODE}
-                onChange={f("SCRAPE_POSTCODE")}
-                placeholder="e.g. CB19PB"
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Radius (miles)</label>
-              <input
-                type="number"
-                min="1"
-                value={form.SCRAPE_RADIUS}
-                onChange={f("SCRAPE_RADIUS")}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Max Price (£)</label>
-              <input
-                type="number"
-                min="0"
-                value={form.SCRAPE_MAX_PRICE}
-                onChange={f("SCRAPE_MAX_PRICE")}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Max Mileage</label>
-              <input
-                type="number"
-                min="0"
-                value={form.SCRAPE_MAX_MILEAGE}
-                onChange={f("SCRAPE_MAX_MILEAGE")}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Max Pages per Run</label>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={form.SCRAPE_MAX_PAGES}
-                onChange={f("SCRAPE_MAX_PAGES")}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-          </div>
-
           <div className="border-t pt-4 mt-2">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">AutoTrader Login (for phone numbers)</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

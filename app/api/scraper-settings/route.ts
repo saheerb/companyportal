@@ -5,11 +5,6 @@ import pool from "@/lib/db";
 
 const DEFAULTS: Record<string, string> = {
   SCRAPE_SEARCH_URL: "",
-  SCRAPE_POSTCODE: "CB19PB",
-  SCRAPE_RADIUS: "40",
-  SCRAPE_MAX_PAGES: "5",
-  SCRAPE_MAX_PRICE: "12000",
-  SCRAPE_MAX_MILEAGE: "60000",
   AUTOTRADER_EMAIL: "",
   AUTOTRADER_PASSWORD: "",
 };
