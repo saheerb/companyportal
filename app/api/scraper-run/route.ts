@@ -20,7 +20,8 @@ export async function POST() {
     });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
-  } catch {
+  } catch (err) {
+    console.error("[scraper-run] Could not reach carhunt server:", err);
     return NextResponse.json({ error: "Could not reach carhunt server" }, { status: 502 });
   }
 }
