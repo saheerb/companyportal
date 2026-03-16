@@ -32,7 +32,8 @@ type Lead = {
   created_at: string;
 };
 
-type LogEntry = { id: string; ts: string; msg: string; note?: string };
+type LogEntry = { id: string; ts: string; msg: string; note?: string; reactions?: Record<string, number> };
+const REACTIONS = ["👍", "👎", "❤️", "😊", "😢"];
 
 const STATUS_GROUPS = [
   {
@@ -298,6 +299,25 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
     handleSaved(await res.json());
   }
 
+  const [myReactions, setMyReactions] = useState<Record<string, Set<string>>>({});
+
+  async function toggleReaction(entryId: string, emoji: string) {
+    const reacted = myReactions[entryId]?.has(emoji);
+    setMyReactions((prev) => {
+      const next = { ...prev };
+      const set = new Set(prev[entryId] ?? []);
+      reacted ? set.delete(emoji) : set.add(emoji);
+      next[entryId] = set;
+      return next;
+    });
+    const res = await fetch("/api/leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: lead.id, log_react: { id: entryId, emoji, remove: reacted } }),
+    });
+    handleSaved(await res.json());
+  }
+
   return (
     <>
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -419,17 +439,31 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
               <p className="text-xs text-gray-300 italic">No activity yet</p>
             ) : (
               [...log].reverse().map((entry) => (
-                <div key={entry.id} className="flex gap-2 text-xs group">
-                  <span className="text-gray-300 shrink-0 pt-0.5">
-                    {new Date(entry.ts).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  <span className="text-gray-600 flex-1">
-                    {entry.msg}{entry.note && <span className="text-gray-400"> — {entry.note}</span>}
-                  </span>
-                  <button onClick={() => deleteLogEntry(entry.id)}
-                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity shrink-0">
-                    ✕
-                  </button>
+                <div key={entry.id} className="text-xs group">
+                  <div className="flex gap-2">
+                    <span className="text-gray-300 shrink-0 pt-0.5">
+                      {new Date(entry.ts).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <span className="text-gray-600 flex-1">
+                      {entry.msg}{entry.note && <span className="text-gray-400"> — {entry.note}</span>}
+                    </span>
+                    <button onClick={() => deleteLogEntry(entry.id)}
+                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity shrink-0">
+                      ✕
+                    </button>
+                  </div>
+                  <div className="flex gap-1 mt-1 flex-wrap">
+                    {REACTIONS.map((emoji) => {
+                      const count = entry.reactions?.[emoji] ?? 0;
+                      const active = myReactions[entry.id]?.has(emoji);
+                      return (
+                        <button key={emoji} onClick={() => toggleReaction(entry.id, emoji)}
+                          className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-xs transition-colors ${active ? "bg-blue-50 border-blue-300" : "border-gray-200 hover:bg-gray-50"}`}>
+                          {emoji}{count > 0 && <span className="text-gray-500 text-[10px]">{count}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ))
             )}

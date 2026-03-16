@@ -41,14 +41,14 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { id, log_add, log_edit, log_delete, ...fields } = body;
+  const { id, log_add, log_edit, log_delete, log_react, ...fields } = body;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   // Activity log operations
-  if (log_add || log_edit || log_delete) {
+  if (log_add || log_edit || log_delete || log_react) {
     const { rows } = await pool.query(`SELECT activity_log FROM leads WHERE id = $1`, [id]);
     if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    let log: { id: string; ts: string; msg: string; note?: string }[] = [];
+    let log: { id: string; ts: string; msg: string; note?: string; reactions?: Record<string, number> }[] = [];
     try { log = JSON.parse(rows[0].activity_log || "[]"); } catch { log = []; }
 
     if (log_add) {
@@ -60,6 +60,19 @@ export async function PATCH(req: NextRequest) {
     }
     if (log_delete) {
       log = log.filter((e) => e.id !== log_delete);
+    }
+    if (log_react) {
+      const entry = log.find((e) => e.id === log_react.id);
+      if (entry) {
+        if (!entry.reactions) entry.reactions = {};
+        const current = entry.reactions[log_react.emoji] ?? 0;
+        if (log_react.remove) {
+          entry.reactions[log_react.emoji] = Math.max(0, current - 1);
+          if (entry.reactions[log_react.emoji] === 0) delete entry.reactions[log_react.emoji];
+        } else {
+          entry.reactions[log_react.emoji] = current + 1;
+        }
+      }
     }
 
     const { rows: updated } = await pool.query(
