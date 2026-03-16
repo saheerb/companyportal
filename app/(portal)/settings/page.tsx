@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 // ─── Scraper Settings ──────────────────────────────────────────────────────────
 type ScraperSettings = {
+  SCRAPE_SEARCH_URL: string;
   SCRAPE_POSTCODE: string;
   SCRAPE_RADIUS: string;
   SCRAPE_MAX_PAGES: string;
@@ -15,6 +16,7 @@ type ScraperSettings = {
 
 function ScraperSettingsSection() {
   const [form, setForm] = useState<ScraperSettings>({
+    SCRAPE_SEARCH_URL: "",
     SCRAPE_POSTCODE: "",
     SCRAPE_RADIUS: "",
     SCRAPE_MAX_PAGES: "",
@@ -47,7 +49,7 @@ function ScraperSettingsSection() {
   }
 
   const f = (key: keyof ScraperSettings) =>
-    (e: React.ChangeEvent<HTMLInputElement>) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm({ ...form, [key]: e.target.value });
 
   return (
@@ -61,6 +63,17 @@ function ScraperSettingsSection() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">AutoTrader Search URL</label>
+            <textarea
+              value={form.SCRAPE_SEARCH_URL}
+              onChange={f("SCRAPE_SEARCH_URL")}
+              placeholder="Paste your AutoTrader search URL here — if set, the fields below are ignored"
+              rows={3}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+            />
+            <p className="text-xs text-gray-400 mt-1">If set, this URL is used as-is (page number appended automatically). Leave blank to use the fields below.</p>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Postcode</label>

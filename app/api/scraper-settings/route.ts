@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import pool from "@/lib/db";
 
 const DEFAULTS: Record<string, string> = {
+  SCRAPE_SEARCH_URL: "",
   SCRAPE_POSTCODE: "CB19PB",
   SCRAPE_RADIUS: "40",
   SCRAPE_MAX_PAGES: "5",
