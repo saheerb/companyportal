@@ -192,22 +192,24 @@ function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void
 
 // ─── Log Action Modal ──────────────────────────────────────────────────────────
 function LogActionModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void; onSaved: (updated: Lead) => void }) {
-  const [selectedStatus, setSelectedStatus] = useState(lead.status || "New");
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function save() {
+    if (!note.trim() && !selectedStatus) return;
     setSaving(true);
-    const msg = selectedStatus !== lead.status
+    const newStatus = selectedStatus ?? lead.status;
+    const msg = selectedStatus && selectedStatus !== lead.status
       ? `Status changed to "${selectedStatus}"`
-      : "Note added";
+      : note.trim() || "Note added";
     const res = await fetch("/api/leads", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: lead.id,
-        status: selectedStatus,
-        log_add: { msg, note: note || undefined },
+        ...(selectedStatus && selectedStatus !== lead.status ? { status: newStatus } : {}),
+        log_add: { msg, note: selectedStatus ? (note || undefined) : undefined },
       }),
     });
     const updated = await res.json();
@@ -224,12 +226,13 @@ function LogActionModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () =>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
         </div>
         <div className="p-5 space-y-4">
+          <p className="text-xs text-gray-400">Current status: <span className="font-semibold text-gray-600">{lead.status || "New"}</span> — select a new status below, or just add a note.</p>
           {STATUS_GROUPS.map((g) => (
             <div key={g.label}>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">{g.label}</p>
               <div className="flex flex-wrap gap-2">
                 {g.statuses.map((s) => (
-                  <button key={s} onClick={() => setSelectedStatus(s)}
+                  <button key={s} onClick={() => setSelectedStatus(selectedStatus === s ? null : s)}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all ${
                       selectedStatus === s
                         ? `${g.color} text-white border-transparent`
@@ -243,16 +246,16 @@ function LogActionModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () =>
           ))}
 
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Note (optional)</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Note {selectedStatus ? "(optional)" : "(required)"}</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-              placeholder="Add a note…"
+              placeholder={selectedStatus ? "Add a note…" : "What happened?"}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" />
           </div>
 
           <div className="flex gap-3">
             <button onClick={onClose} className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button onClick={save} disabled={saving} className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm hover:bg-gray-800 disabled:opacity-50 font-medium">
-              {saving ? "Saving…" : "Log Action"}
+            <button onClick={save} disabled={saving || (!note.trim() && !selectedStatus)} className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm hover:bg-gray-800 disabled:opacity-50 font-medium">
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </div>
