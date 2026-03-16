@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest) {
   const { id, log_add, log_edit, log_delete, ...fields } = body;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  // Activity log operations
+  // Activity log operations (may also include a status update)
   if (log_add || log_edit || log_delete) {
     const { rows } = await pool.query(`SELECT activity_log FROM leads WHERE id = $1`, [id]);
     if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -62,9 +62,13 @@ export async function PATCH(req: NextRequest) {
       log = log.filter((e) => e.id !== log_delete);
     }
 
+    // Also update status if provided alongside log operation
+    const params: unknown[] = [JSON.stringify(log), id];
+    const statusClause = fields.status ? `, status = $3` : "";
+    if (fields.status) params.push(fields.status);
     const { rows: updated } = await pool.query(
-      `UPDATE leads SET activity_log = $1 WHERE id = $2 RETURNING *`,
-      [JSON.stringify(log), id]
+      `UPDATE leads SET activity_log = $1${statusClause} WHERE id = $2 RETURNING *`,
+      params
     );
     return NextResponse.json(updated[0]);
   }
