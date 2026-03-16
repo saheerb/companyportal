@@ -28,12 +28,24 @@ function ScraperSettingsSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runMsg, setRunMsg] = useState("");
 
   useEffect(() => {
     fetch("/api/scraper-settings")
       .then((r) => r.json())
       .then((data) => { setForm(data); setLoading(false); });
   }, []);
+
+  async function handleRunNow() {
+    setRunning(true);
+    setRunMsg("");
+    const res = await fetch("/api/scraper-run", { method: "POST" });
+    const data = await res.json();
+    setRunning(false);
+    setRunMsg(res.ok ? "Scrape started!" : (data.error || "Failed to start scrape"));
+    setTimeout(() => setRunMsg(""), 4000);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -154,7 +166,7 @@ function ScraperSettingsSection() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 pt-1">
+          <div className="flex items-center gap-3 pt-1 flex-wrap">
             <button
               type="submit"
               disabled={saving}
@@ -162,7 +174,16 @@ function ScraperSettingsSection() {
             >
               {saving ? "Saving…" : "Save Settings"}
             </button>
+            <button
+              type="button"
+              onClick={handleRunNow}
+              disabled={running}
+              className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 font-medium"
+            >
+              {running ? "Starting…" : "Run Now"}
+            </button>
             {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
+            {runMsg && <span className={`text-sm font-medium ${runMsg.includes("started") ? "text-green-600" : "text-red-600"}`}>{runMsg}</span>}
           </div>
         </form>
       )}
