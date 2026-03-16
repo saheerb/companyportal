@@ -456,6 +456,12 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
                     {REACTIONS.map((emoji) => {
                       const count = entry.reactions?.[emoji] ?? 0;
                       const active = myReactions[entry.id]?.has(emoji);
+                      if (!active && count === 0) return (
+                        <button key={emoji} onClick={() => toggleReaction(entry.id, emoji)}
+                          className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border border-gray-200 hover:bg-gray-50 text-xs transition-all">
+                          {emoji}
+                        </button>
+                      );
                       return (
                         <button key={emoji} onClick={() => toggleReaction(entry.id, emoji)}
                           className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-xs transition-colors ${active ? "bg-blue-50 border-blue-300" : "border-gray-200 hover:bg-gray-50"}`}>
