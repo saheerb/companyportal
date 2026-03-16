@@ -83,7 +83,6 @@ function shownToCustomer(lead: Lead) {
 function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void; onSaved: (updated: Lead) => void }) {
   const [form, setForm] = useState({
     offered_price: lead.offered_price ?? "",
-    notes: lead.notes ?? "",
     autotrader_price: lead.autotrader_price ?? "",
     motors_price: lead.motors_price ?? "",
     wbac_price: lead.wbac_price ?? "",
@@ -156,12 +155,6 @@ function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void
               className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
 
-          {/* Notes */}
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Notes</label>
-            <textarea value={form.notes} onChange={f("notes")} rows={3}
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" />
-          </div>
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
