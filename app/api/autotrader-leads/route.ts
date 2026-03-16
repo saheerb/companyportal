@@ -24,7 +24,9 @@ async function ensureTable() {
       wbac_price    NUMERIC,
       auction_price NUMERIC,
       retail_price  NUMERIC,
-      reg           TEXT
+      reg           TEXT,
+      gearbox       TEXT,
+      distance_miles INTEGER
     )
   `);
 }

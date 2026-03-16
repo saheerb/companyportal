@@ -20,6 +20,8 @@ type CarLead = {
   auction_price: number | null;
   retail_price: number | null;
   reg: string | null;
+  gearbox: string | null;
+  distance_miles: number | null;
   scraped_at: string;
 };
 
@@ -337,7 +339,13 @@ function CarLeadCard({ lead: initialLead, onUpdate }: { lead: CarLead; onUpdate:
             </div>
             <div className="bg-gray-50 rounded-lg p-2">
               <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">Location</p>
-              <p className="font-bold text-sm mt-0.5 truncate">{lead.location ?? "—"}</p>
+              <p className="font-bold text-sm mt-0.5 truncate">
+                {lead.location ?? "—"}{lead.distance_miles != null ? ` (${lead.distance_miles} mi)` : ""}
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">Gearbox</p>
+              <p className="font-bold text-sm mt-0.5">{lead.gearbox ?? "—"}</p>
             </div>
           </div>
         </div>
