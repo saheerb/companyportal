@@ -82,7 +82,6 @@ function shownToCustomer(lead: Lead) {
 // ─── Edit Modal ────────────────────────────────────────────────────────────────
 function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void; onSaved: (updated: Lead) => void }) {
   const [form, setForm] = useState({
-    status: lead.status || "New",
     offered_price: lead.offered_price ?? "",
     notes: lead.notes ?? "",
     autotrader_price: lead.autotrader_price ?? "",
@@ -122,20 +121,6 @@ function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void
         </div>
 
         <form onSubmit={save} className="p-5 space-y-4">
-          {/* Status */}
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Status</label>
-            <select value={form.status} onChange={f("status")}
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-              <option value="New">New</option>
-              {STATUS_GROUPS.map((g) => (
-                <optgroup key={g.label} label={g.label}>
-                  {g.statuses.map((s) => <option key={s}>{s}</option>)}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-
           {/* Offered price */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Offered Price (£)</label>
