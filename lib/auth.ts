@@ -1,77 +1,14 @@
 import { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import { scrypt, timingSafeEqual } from "crypto";
 import pool from "./db";
 
 const DEBUG = process.env.DEBUG_AUTH === "true";
 const log = (...args: unknown[]) => DEBUG && console.log("[auth]", ...args);
 
-async function hashPassword(password: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    scrypt(password, "happycardeals-admin", 64, (err, key) => {
-      if (err) reject(err);
-      else resolve(key.toString("hex"));
-    });
-  });
-}
-
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  try {
-    const derived = await hashPassword(password);
-    return timingSafeEqual(Buffer.from(derived, "hex"), Buffer.from(hash, "hex"));
-  } catch {
-    return false;
-  }
-}
-
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/login", error: "/auth-error" },
   providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        log("authorize called, username:", credentials?.username);
-        if (!credentials?.username || !credentials?.password) {
-          log("missing credentials");
-          return null;
-        }
-
-        // Check against ADMIN_USERNAME / ADMIN_PASSWORD env vars (same as happycardeals)
-        const adminUsername = process.env.ADMIN_USERNAME ?? "admin";
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        if (adminPassword && credentials.username === adminUsername && credentials.password === adminPassword) {
-          log("env-var admin login ok");
-          return { id: "admin", name: adminUsername, email: adminUsername };
-        }
-        log("env-var check failed, trying db");
-
-        // Fallback: check users table (for any DB-stored users with password_hash)
-        let rows;
-        try {
-          ({ rows } = await pool.query(
-            "SELECT * FROM users WHERE username = $1",
-            [credentials.username]
-          ));
-          log("db query ok, rows found:", rows.length);
-        } catch (err) {
-          log("db query failed:", (err as Error).message);
-          return null;
-        }
-        const user = rows[0];
-        if (!user) { log("user not found in db"); return null; }
-        if (!user.password_hash) { log("user has no password_hash"); return null; }
-        const valid = await verifyPassword(credentials.password, user.password_hash);
-        log("password valid:", valid);
-        if (!valid) return null;
-        return { id: String(user.id), name: user.username, email: user.username };
-      },
-    }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
