@@ -285,7 +285,7 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
     const res = await fetch("/api/leads", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: lead.id, log_edit: { id: entry.id, msg: entry.msg, note: editText || undefined } }),
+      body: JSON.stringify({ id: lead.id, log_edit: { id: entry.id, msg: editText.trim() || entry.msg, note: undefined } }),
     });
     handleSaved(await res.json());
     setEditingEntry(null);
@@ -438,7 +438,7 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
                     ) : (
                       <span className="text-gray-400">
                         {entry.note && ` — ${entry.note}`}
-                        <button onClick={() => { setEditingEntry(entry.id); setEditText(entry.note ?? ""); }}
+                        <button onClick={() => { setEditingEntry(entry.id); setEditText(entry.note ?? entry.msg); }}
                           className="opacity-0 group-hover:opacity-100 ml-1 text-blue-400 hover:text-blue-600 transition-opacity">✎</button>
                       </span>
                     )}
