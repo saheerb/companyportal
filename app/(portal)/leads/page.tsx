@@ -53,12 +53,12 @@ const STATUS_GROUPS = [
   {
     label: "Closed",
     color: "bg-red-500",
-    statuses: ["Offer Declined", "Sold Elsewhere", "Not Worth"],
+    statuses: ["Offer Declined", "Sold Elsewhere", "Not Worth", "Valuation Check"],
   },
 ];
 
 const ALL_STATUSES = STATUS_GROUPS.flatMap((g) => g.statuses);
-const CLOSED = ["Offer Declined", "Sold Elsewhere", "Not Worth", "Sold to Us"];
+const CLOSED = ["Offer Declined", "Sold Elsewhere", "Not Worth", "Valuation Check", "Sold to Us"];
 
 function statusColor(s: string) {
   if (!s || s === "New") return "bg-gray-500";
