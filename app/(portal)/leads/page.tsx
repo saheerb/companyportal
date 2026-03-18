@@ -247,8 +247,6 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
   const [lead, setLead] = useState(initialLead);
   const [showEdit, setShowEdit] = useState(false);
   const [showLog, setShowLog] = useState(false);
-  const [addNote, setAddNote] = useState(false);
-  const [noteText, setNoteText] = useState("");
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
@@ -259,18 +257,6 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
 
   function handleSaved(updated: Lead) { setLead(updated); onUpdate(updated); }
 
-  async function submitNote() {
-    if (!noteText.trim()) return;
-    const res = await fetch("/api/leads", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: lead.id, log_add: { msg: noteText.trim() } }),
-    });
-    const updated = await res.json();
-    handleSaved(updated);
-    setNoteText("");
-    setAddNote(false);
-  }
 
   async function deleteLogEntry(entryId: string) {
     const res = await fetch("/api/leads", {
@@ -393,27 +379,9 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
 
         {/* Activity log */}
         <div className="px-4 pb-4 border-t border-gray-100 pt-3">
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Activity Log</p>
-            <button onClick={() => setAddNote(!addNote)} className="text-xs text-blue-600 hover:underline font-medium">
-              + Add Note
-            </button>
           </div>
-
-          {addNote && (
-            <div className="mb-3 flex gap-2">
-              <input
-                autoFocus
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submitNote()}
-                placeholder="Type a note and press Enter…"
-                className="flex-1 border rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-              <button onClick={submitNote} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">Add</button>
-              <button onClick={() => setAddNote(false)} className="text-xs border px-2.5 py-1.5 rounded-lg hover:bg-gray-50">✕</button>
-            </div>
-          )}
 
           <div className="space-y-1.5">
             {log.length === 0 ? (
