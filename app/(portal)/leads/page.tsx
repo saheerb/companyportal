@@ -21,6 +21,7 @@ type Lead = {
   part_exchange: number | null;
   list_price: number | null;
   autotrader_price: number | null;
+  autotrader_retail_price: number | null;
   motors_price: number | null;
   wbac_price: number | null;
   scrap_price: number | null;
@@ -38,7 +39,7 @@ const STATUS_GROUPS = [
   {
     label: "Calling",
     color: "bg-blue-500",
-    statuses: ["Called - No Answer", "Called - Voicemail Left", "Called - Callback Req."],
+    statuses: ["Called - No Answer", "Called - Voicemail Left", "Called - Callback Req.", "WhatsApp Msg Sent"],
   },
   {
     label: "In Progress",
@@ -84,6 +85,7 @@ function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void
   const [form, setForm] = useState({
     offered_price: lead.offered_price ?? "",
     autotrader_price: lead.autotrader_price ?? "",
+    autotrader_retail_price: lead.autotrader_retail_price ?? "",
     motors_price: lead.motors_price ?? "",
     wbac_price: lead.wbac_price ?? "",
     scrap_price: lead.scrap_price ?? "",
@@ -133,7 +135,8 @@ function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Competitor Prices</p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Auto Trader", key: "autotrader_price" as const },
+                { label: "AutoTrader PX", key: "autotrader_price" as const },
+                { label: "AutoTrader Retail", key: "autotrader_retail_price" as const },
                 { label: "Motors", key: "motors_price" as const },
                 { label: "WBAC", key: "wbac_price" as const },
                 { label: "Scrap", key: "scrap_price" as const },
@@ -351,12 +354,13 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
         </div>
 
         {/* Competitor prices */}
-        {(lead.autotrader_price || lead.motors_price || lead.wbac_price || lead.scrap_price) && (
+        {(lead.autotrader_price || lead.autotrader_retail_price || lead.motors_price || lead.wbac_price || lead.scrap_price) && (
           <div className="px-4 pb-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Competitor Prices</p>
             <div className="grid grid-cols-2 gap-1.5">
               {[
-                { label: "Auto Trader", value: lead.autotrader_price },
+                { label: "AutoTrader PX", value: lead.autotrader_price },
+                { label: "AutoTrader Retail", value: lead.autotrader_retail_price },
                 { label: "Motors", value: lead.motors_price },
                 { label: "WBAC", value: lead.wbac_price },
                 { label: "Scrap", value: lead.scrap_price },
