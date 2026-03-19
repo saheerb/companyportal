@@ -256,8 +256,12 @@ type SmartOfferResult = {
   mileageBand: string | null;
   apiValue: number;
   margin: number;
-  enhancedSmartOffer?: number;
-  calibrationDataPoints?: number;
+  estimatedAtPx?: number;
+  atPxRatio?: number;
+  atPxDataPoints?: number;
+  estimatedAtRetail?: number;
+  atRetailRatio?: number;
+  atRetailDataPoints?: number;
 };
 
 function SmartOfferPanel({ leadId }: { leadId: number }) {
@@ -329,15 +333,26 @@ function SmartOfferPanel({ leadId }: { leadId: number }) {
                   <span className="font-bold text-indigo-800">Our offer (+£{data.margin})</span>
                   <span className="font-bold text-indigo-900 text-sm">{fmt(data.smartOffer)}</span>
                 </div>
-                {data.enhancedSmartOffer != null && (
-                  <div className="flex justify-between border-t border-indigo-200 pt-1.5 mt-1">
-                    <span className="font-bold text-purple-700">
-                      Enhanced Offer (AT)
-                      {data.calibrationDataPoints != null && data.calibrationDataPoints > 0 && (
-                        <span className="font-normal text-purple-400 ml-1">+{data.calibrationDataPoints} AT lead{data.calibrationDataPoints !== 1 ? "s" : ""}</span>
+                {data.estimatedAtPx != null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">
+                      AutoTrader PX
+                      {data.atPxDataPoints != null && data.atPxDataPoints > 0 && (
+                        <span className="text-gray-400 ml-1">({data.atPxDataPoints} car{data.atPxDataPoints !== 1 ? "s" : ""})</span>
                       )}
                     </span>
-                    <span className="font-bold text-purple-800 text-sm">{fmt(data.enhancedSmartOffer)}</span>
+                    <span className="font-medium">{fmt(data.estimatedAtPx)}</span>
+                  </div>
+                )}
+                {data.estimatedAtRetail != null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">
+                      AutoTrader Retail
+                      {data.atRetailDataPoints != null && data.atRetailDataPoints > 0 && (
+                        <span className="text-gray-400 ml-1">({data.atRetailDataPoints} car{data.atRetailDataPoints !== 1 ? "s" : ""})</span>
+                      )}
+                    </span>
+                    <span className="font-medium">{fmt(data.estimatedAtRetail)}</span>
                   </div>
                 )}
               </div>

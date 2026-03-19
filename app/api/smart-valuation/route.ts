@@ -120,14 +120,11 @@ export async function GET(req: NextRequest) {
   const currentAgeBand = getAgeBand(ageYears);
   const currentMileageBand = getMileageBand(lead.mileage ? Number(lead.mileage) : null);
 
-  // Fetch all training rows: Source A (auction+wbac), Source B/C (autotrader+wbac), calibration (auction+autotrader)
   const { rows } = await pool.query(`
-    SELECT auction_value, wbac_price, autotrader_price, mileage, reg
+    SELECT auction_value, wbac_price, autotrader_price, autotrader_retail_price, mileage, reg
     FROM leads
-    WHERE
-      (auction_value IS NOT NULL AND wbac_price IS NOT NULL AND auction_value > 0)
-      OR (autotrader_price IS NOT NULL AND wbac_price IS NOT NULL AND autotrader_price > 0)
-      OR (auction_value IS NOT NULL AND autotrader_price IS NOT NULL AND auction_value > 0 AND autotrader_price > 0)
+    WHERE auction_value IS NOT NULL AND auction_value > 0
+      AND (wbac_price IS NOT NULL OR autotrader_price IS NOT NULL OR autotrader_retail_price IS NOT NULL)
   `);
 
   const FALLBACK_RATIO = 0.88;
@@ -161,56 +158,59 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Compute standard smart offer (Source A only)
+  // Compute standard smart offer (WBAC)
   const standardResult = computeOffer(auctionValue, currentAgeBand, currentMileageBand, annotated, FALLBACK_RATIO)!;
 
-  // Compute AutoTrader/auction calibration from leads with both fields
-  const calibrationRatios = rows
+  // Compute AT PX prediction
+  const atPxEntries: BandEntry[] = rows
     .filter((r) => r.auction_value != null && r.autotrader_price != null && Number(r.auction_value) > 0 && Number(r.autotrader_price) > 0)
-    .map((r) => Number(r.autotrader_price) / Number(r.auction_value))
-    .filter((v) => isFinite(v) && v > 0 && v < 3);
+    .map((row) => {
+      const rowYear = extractYearFromReg(row.reg || "");
+      const rowAge = rowYear ? currentYear - rowYear : null;
+      return {
+        ageBand: getAgeBand(rowAge),
+        mileageBand: getMileageBand(row.mileage ? Number(row.mileage) : null),
+        ratio: Number(row.autotrader_price) / Number(row.auction_value),
+      };
+    })
+    .filter((r) => isFinite(r.ratio) && r.ratio > 0 && r.ratio < 3);
 
-  const calibration = calibrationRatios.length >= 2 ? medianRatio(calibrationRatios) : null;
+  const atPxResult = atPxEntries.length > 0
+    ? computeOffer(auctionValue, currentAgeBand, currentMileageBand, atPxEntries, FALLBACK_RATIO)
+    : null;
 
-  // Build Source C bridge entries: autotrader+wbac but NO auction_value
-  let enhancedSmartOffer: number | null = null;
-  let calibrationDataPoints = 0;
+  // Compute AT Retail prediction
+  const atRetailEntries: BandEntry[] = rows
+    .filter((r) => r.auction_value != null && r.autotrader_retail_price != null && Number(r.auction_value) > 0 && Number(r.autotrader_retail_price) > 0)
+    .map((row) => {
+      const rowYear = extractYearFromReg(row.reg || "");
+      const rowAge = rowYear ? currentYear - rowYear : null;
+      return {
+        ageBand: getAgeBand(rowAge),
+        mileageBand: getMileageBand(row.mileage ? Number(row.mileage) : null),
+        ratio: Number(row.autotrader_retail_price) / Number(row.auction_value),
+      };
+    })
+    .filter((r) => isFinite(r.ratio) && r.ratio > 0 && r.ratio < 3);
 
-  if (calibration != null) {
-    const bridgeEntries: BandEntry[] = rows
-      .filter(
-        (r) =>
-          r.autotrader_price != null &&
-          r.wbac_price != null &&
-          Number(r.autotrader_price) > 0 &&
-          (r.auction_value == null || Number(r.auction_value) === 0)
-      )
-      .map((row) => {
-        const rowYear = extractYearFromReg(row.reg || "");
-        const rowAge = rowYear ? currentYear - rowYear : null;
-        const syntheticRatio = (Number(row.wbac_price) / Number(row.autotrader_price)) * calibration;
-        return {
-          ageBand: getAgeBand(rowAge),
-          mileageBand: getMileageBand(row.mileage ? Number(row.mileage) : null),
-          ratio: syntheticRatio,
-        };
-      })
-      .filter((r) => isFinite(r.ratio) && r.ratio > 0 && r.ratio < 2);
-
-    calibrationDataPoints = bridgeEntries.length;
-
-    if (bridgeEntries.length > 0) {
-      const enhancedPool = [...annotated, ...bridgeEntries];
-      const enhancedResult = computeOffer(auctionValue, currentAgeBand, currentMileageBand, enhancedPool, FALLBACK_RATIO);
-      if (enhancedResult) enhancedSmartOffer = enhancedResult.smartOffer;
-    }
-  }
+  const atRetailResult = atRetailEntries.length > 0
+    ? computeOffer(auctionValue, currentAgeBand, currentMileageBand, atRetailEntries, FALLBACK_RATIO)
+    : null;
 
   return NextResponse.json({
     ...standardResult,
     ageBand: currentAgeBand,
     mileageBand: currentMileageBand,
     apiValue: auctionValue,
-    ...(enhancedSmartOffer != null ? { enhancedSmartOffer, calibrationDataPoints } : {}),
+    ...(atPxResult ? {
+      estimatedAtPx: atPxResult.estimatedWbac,
+      atPxRatio: atPxResult.wbacRatio,
+      atPxDataPoints: atPxResult.bandDataPoints,
+    } : {}),
+    ...(atRetailResult ? {
+      estimatedAtRetail: atRetailResult.estimatedWbac,
+      atRetailRatio: atRetailResult.wbacRatio,
+      atRetailDataPoints: atRetailResult.bandDataPoints,
+    } : {}),
   });
 }
