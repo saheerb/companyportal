@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
     const wbacRatio = medianRatio(exactRows.map((r) => r.ratio))!;
     const estimatedWbac = auctionValue * wbacRatio;
     return NextResponse.json({
-      smartOffer: Math.round((estimatedWbac + 150) / 50) * 50,
+      smartOffer: Math.round(estimatedWbac + 150),
       estimatedWbac: Math.round(estimatedWbac),
       wbacRatio: Math.round(wbacRatio * 1000) / 1000,
       confidence: exactRows.length >= 5 ? "high" : "medium",
@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
     const wbacRatio = medianRatio(expandedRows.map((r) => r.ratio))!;
     const estimatedWbac = auctionValue * wbacRatio;
     return NextResponse.json({
-      smartOffer: Math.round((estimatedWbac + 150) / 50) * 50,
+      smartOffer: Math.round(estimatedWbac + 150),
       estimatedWbac: Math.round(estimatedWbac),
       wbacRatio: Math.round(wbacRatio * 1000) / 1000,
       confidence: "medium",
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
   const globalRatio = medianRatio(annotated.map((r) => r.ratio)) ?? FALLBACK_RATIO;
   const estimatedWbac = auctionValue * globalRatio;
   return NextResponse.json({
-    smartOffer: Math.round((estimatedWbac + 150) / 50) * 50,
+    smartOffer: Math.round(estimatedWbac + 150),
     estimatedWbac: Math.round(estimatedWbac),
     wbacRatio: Math.round(globalRatio * 1000) / 1000,
     confidence: "low",
