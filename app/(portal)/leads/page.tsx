@@ -376,10 +376,12 @@ function SmartOfferPanel({ leadId }: { leadId: number }) {
 }
 
 // ─── Lead Card ─────────────────────────────────────────────────────────────────
-function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: Lead) => void }) {
+function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpdate: (l: Lead) => void; onDelete: (id: number) => void }) {
   const [lead, setLead] = useState(initialLead);
   const [showEdit, setShowEdit] = useState(false);
   const [showLog, setShowLog] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
@@ -389,6 +391,12 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
   const shown = shownToCustomer(lead);
 
   function handleSaved(updated: Lead) { setLead(updated); onUpdate(updated); }
+
+  async function handleDelete() {
+    setDeleting(true);
+    await fetch(`/api/leads?id=${lead.id}`, { method: "DELETE" });
+    onDelete(lead.id);
+  }
 
 
   async function deleteLogEntry(entryId: string) {
@@ -422,10 +430,29 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
                 {lead.status || "New"}
               </span>
             </div>
-            <button onClick={() => setShowEdit(true)}
-              className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 shrink-0 ml-2">
-              Edit
-            </button>
+            <div className="flex gap-1.5 shrink-0 ml-2">
+              <button onClick={() => setShowEdit(true)}
+                className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700">
+                Edit
+              </button>
+              {confirmDelete ? (
+                <>
+                  <button onClick={handleDelete} disabled={deleting}
+                    className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 disabled:opacity-50">
+                    {deleting ? "…" : "Confirm"}
+                  </button>
+                  <button onClick={() => setConfirmDelete(false)}
+                    className="text-xs border border-gray-300 px-2 py-1.5 rounded-lg hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmDelete(true)}
+                  className="text-xs border border-red-200 text-red-400 px-2 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600">
+                  Delete
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex justify-between text-sm text-gray-500">
             <span className="font-medium text-gray-700">{lead.name}</span>
@@ -616,6 +643,10 @@ export default function LeadsPage() {
     setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
   }
 
+  function handleDelete(id: number) {
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+  }
+
   const visible = hideClosed ? leads.filter((l) => !CLOSED.includes(l.status)) : leads;
   const closedCount = leads.filter((l) => CLOSED.includes(l.status)).length;
 
@@ -663,7 +694,7 @@ export default function LeadsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {visible.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onUpdate={handleUpdate} />
+            <LeadCard key={lead.id} lead={lead} onUpdate={handleUpdate} onDelete={handleDelete} />
           ))}
         </div>
       )}
