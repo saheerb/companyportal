@@ -454,10 +454,10 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
               {lead.utm_source && (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                   lead.utm_source === 'google' ? 'bg-blue-100 text-blue-700' :
-                  lead.utm_source === 'facebook' || lead.utm_source === 'instagram' ? 'bg-indigo-100 text-indigo-700' :
+                  ['facebook','fb','ig','instagram'].includes(lead.utm_source) ? 'bg-indigo-100 text-indigo-700' :
                   'bg-gray-100 text-gray-600'
                 }`}>
-                  {lead.utm_source === 'google' ? '🔵' : lead.utm_source === 'facebook' ? '🟣' : '📌'} {lead.utm_source}
+                  {lead.utm_source === 'google' ? '🔵' : ['facebook','fb','ig','instagram'].includes(lead.utm_source) ? '🟣' : '📌'} {lead.utm_source}
                   {lead.utm_medium && <span className="font-normal opacity-70 ml-1">· {lead.utm_medium}</span>}
                 </span>
               )}
