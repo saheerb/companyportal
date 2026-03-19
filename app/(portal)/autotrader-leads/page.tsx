@@ -22,6 +22,17 @@ type CarLead = {
   reg: string | null;
   gearbox: string | null;
   distance_miles: number | null;
+  fuel_type: string | null;
+  body_type: string | null;
+  engine_size: string | null;
+  doors: number | null;
+  seats: number | null;
+  emission_class: string | null;
+  colour: string | null;
+  owners: number | null;
+  mot_expiry: string | null;
+  service_history: string | null;
+  keys: string | null;
   scraped_at: string;
 };
 
@@ -323,32 +334,47 @@ function CarLeadCard({ lead: initialLead, onUpdate }: { lead: CarLead; onUpdate:
         {/* Car details */}
         <div className="px-4 pb-3">
           <div className="grid grid-cols-2 gap-1.5">
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">Price</p>
-              <p className="font-bold text-sm mt-0.5">{fmt(lead.price)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">Year</p>
-              <p className="font-bold text-sm mt-0.5">{lead.year ?? "—"}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">Mileage</p>
-              <p className="font-bold text-sm mt-0.5">
-                {lead.mileage != null ? Number(lead.mileage).toLocaleString("en-GB") + " mi" : "—"}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">Location</p>
-              <p className="font-bold text-sm mt-0.5 truncate">
-                {lead.location ?? "—"}{lead.distance_miles != null ? ` (${lead.distance_miles} mi)` : ""}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">Gearbox</p>
-              <p className="font-bold text-sm mt-0.5">{lead.gearbox ?? "—"}</p>
-            </div>
+            {[
+              { label: "Price", value: fmt(lead.price) },
+              { label: "Year", value: lead.year ?? "—" },
+              { label: "Mileage", value: lead.mileage != null ? Number(lead.mileage).toLocaleString("en-GB") + " mi" : "—" },
+              { label: "Location", value: lead.location ? `${lead.location}${lead.distance_miles != null ? ` (${lead.distance_miles} mi)` : ""}` : "—" },
+              { label: "Gearbox", value: lead.gearbox ?? "—" },
+              { label: "Fuel", value: lead.fuel_type ?? "—" },
+              { label: "Body", value: lead.body_type ?? "—" },
+              { label: "Engine", value: lead.engine_size ?? "—" },
+              { label: "Doors", value: lead.doors ?? "—" },
+              { label: "Seats", value: lead.seats ?? "—" },
+              { label: "Colour", value: lead.colour ?? "—" },
+              { label: "Emission", value: lead.emission_class ?? "—" },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-gray-50 rounded-lg p-2">
+                <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">{label}</p>
+                <p className="font-bold text-sm mt-0.5 truncate">{String(value)}</p>
+              </div>
+            ))}
           </div>
         </div>
+
+        {/* History */}
+        {(lead.owners != null || lead.mot_expiry || lead.service_history || lead.keys) && (
+          <div className="px-4 pb-3">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">History</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { label: "Owners", value: lead.owners },
+                { label: "MOT Expiry", value: lead.mot_expiry },
+                { label: "Service History", value: lead.service_history },
+                { label: "Keys", value: lead.keys },
+              ].filter(x => x.value != null).map(({ label, value }) => (
+                <div key={label} className="bg-blue-50 rounded-lg p-2">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">{label}</p>
+                  <p className="font-bold text-sm mt-0.5">{String(value)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Seller info */}
         <div className="px-4 pb-3">
