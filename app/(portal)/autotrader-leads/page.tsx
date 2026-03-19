@@ -33,6 +33,7 @@ type CarLead = {
   mot_expiry: string | null;
   service_history: string | null;
   keys: string | null;
+  vehicle_check: string | null;
   scraped_at: string;
 };
 
@@ -357,7 +358,7 @@ function CarLeadCard({ lead: initialLead, onUpdate }: { lead: CarLead; onUpdate:
         </div>
 
         {/* History */}
-        {(lead.owners != null || lead.mot_expiry || lead.service_history || lead.keys) && (
+        {(lead.owners != null || lead.mot_expiry || lead.service_history || lead.keys || lead.vehicle_check) && (
           <div className="px-4 pb-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">History</p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -366,6 +367,7 @@ function CarLeadCard({ lead: initialLead, onUpdate }: { lead: CarLead; onUpdate:
                 { label: "MOT Expiry", value: lead.mot_expiry },
                 { label: "Service History", value: lead.service_history },
                 { label: "Keys", value: lead.keys },
+                { label: "Vehicle Check", value: lead.vehicle_check },
               ].filter(x => x.value != null).map(({ label, value }) => (
                 <div key={label} className="bg-blue-50 rounded-lg p-2">
                   <p className="text-xs text-gray-400 uppercase tracking-wide leading-tight">{label}</p>
