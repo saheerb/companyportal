@@ -31,6 +31,10 @@ type Lead = {
   address: string | null;
   activity_log: string | null;
   created_at: string;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  gclid: string | null;
 };
 
 type LogEntry = { id: string; ts: string; msg: string; note?: string };
@@ -445,6 +449,30 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
             </p>
           )}
           {lead.address && <p className="text-xs text-gray-400 mt-0.5">{lead.address}</p>}
+          {(lead.utm_source || lead.gclid) && (
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {lead.utm_source && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                  lead.utm_source === 'google' ? 'bg-blue-100 text-blue-700' :
+                  lead.utm_source === 'facebook' || lead.utm_source === 'instagram' ? 'bg-indigo-100 text-indigo-700' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
+                  {lead.utm_source === 'google' ? '🔵' : lead.utm_source === 'facebook' ? '🟣' : '📌'} {lead.utm_source}
+                  {lead.utm_medium && <span className="font-normal opacity-70 ml-1">· {lead.utm_medium}</span>}
+                </span>
+              )}
+              {lead.gclid && !lead.utm_source && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                  🔵 google ads
+                </span>
+              )}
+              {lead.utm_campaign && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-normal bg-gray-100 text-gray-500">
+                  {lead.utm_campaign}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Offered price banner */}
