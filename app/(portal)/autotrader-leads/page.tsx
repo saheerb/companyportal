@@ -35,6 +35,7 @@ type CarLead = {
   keys: string | null;
   vehicle_check: string | null;
   listed_at: string | null;
+  description: string | null;
   scraped_at: string;
 };
 
@@ -429,6 +430,13 @@ function CarLeadCard({ lead: initialLead, onUpdate }: { lead: CarLead; onUpdate:
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Seller description */}
+        {lead.description && (
+          <div className="mx-4 mb-3 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-600 leading-relaxed">
+            {lead.description}
           </div>
         )}
 
