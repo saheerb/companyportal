@@ -245,6 +245,104 @@ function LogActionModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () =>
   );
 }
 
+// ─── Smart Offer Panel ─────────────────────────────────────────────────────────
+type SmartOfferResult = {
+  smartOffer: number;
+  estimatedWbac: number;
+  wbacRatio: number;
+  confidence: "high" | "medium" | "low";
+  bandDataPoints: number;
+  ageBand: string | null;
+  mileageBand: string | null;
+  apiValue: number;
+  margin: number;
+};
+
+function SmartOfferPanel({ leadId }: { leadId: number }) {
+  const [data, setData] = useState<SmartOfferResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    if (data || loading) { setOpen(true); return; }
+    setLoading(true);
+    setOpen(true);
+    try {
+      const res = await fetch(`/api/smart-valuation?id=${leadId}`);
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || "Failed"); }
+      else { setData(json); }
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const confidenceColor = {
+    high: "bg-green-100 text-green-700",
+    medium: "bg-amber-100 text-amber-700",
+    low: "bg-gray-100 text-gray-500",
+  };
+
+  return (
+    <div className="px-4 pb-3">
+      <button
+        onClick={open ? () => setOpen(false) : load}
+        className="w-full flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-wide mb-2 hover:text-gray-600"
+      >
+        <span>Smart Offer</span>
+        <span className="text-gray-300">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs">
+          {loading && <p className="text-gray-400 italic">Calculating…</p>}
+          {error && <p className="text-red-500">{error}</p>}
+          {data && (
+            <>
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-bold text-sm text-indigo-900">Smart Offer</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${confidenceColor[data.confidence]}`}>
+                  {data.confidence} confidence
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">API value</span>
+                  <span className="font-medium">{fmt(data.apiValue)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">
+                    Est. WBAC
+                    <span className="text-gray-400 ml-1">
+                      ({Math.round(data.wbacRatio * 100)}% of API
+                      {data.bandDataPoints > 0 ? `, ${data.bandDataPoints} similar car${data.bandDataPoints !== 1 ? "s" : ""}` : ""})
+                    </span>
+                  </span>
+                  <span className="font-medium">{fmt(data.estimatedWbac)}</span>
+                </div>
+                <div className="flex justify-between border-t border-indigo-200 pt-1.5 mt-1">
+                  <span className="font-bold text-indigo-800">Our offer (+£{data.margin})</span>
+                  <span className="font-bold text-indigo-900 text-sm">{fmt(data.smartOffer)}</span>
+                </div>
+              </div>
+              {(data.ageBand || data.mileageBand) && (
+                <p className="text-gray-400 mt-2">
+                  {data.ageBand && <>Age band: <span className="text-gray-600">{data.ageBand}</span></>}
+                  {data.ageBand && data.mileageBand && " · "}
+                  {data.mileageBand && <>Mileage band: <span className="text-gray-600">{data.mileageBand}</span></>}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Lead Card ─────────────────────────────────────────────────────────────────
 function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: Lead) => void }) {
   const [lead, setLead] = useState(initialLead);
@@ -373,6 +471,9 @@ function LeadCard({ lead: initialLead, onUpdate }: { lead: Lead; onUpdate: (l: L
             </div>
           </div>
         )}
+
+        {/* Smart Offer */}
+        {lead.auction_value != null && <SmartOfferPanel leadId={lead.id} />}
 
         {/* Notes */}
         {lead.notes && (
