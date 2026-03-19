@@ -34,6 +34,7 @@ type CarLead = {
   service_history: string | null;
   keys: string | null;
   vehicle_check: string | null;
+  listed_at: string | null;
   scraped_at: string;
 };
 
@@ -322,7 +323,14 @@ function CarLeadCard({ lead: initialLead, onUpdate }: { lead: CarLead; onUpdate:
           </div>
 
           <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>{new Date(lead.scraped_at).toLocaleDateString("en-GB")}</span>
+            <span>
+              {new Date(lead.scraped_at).toLocaleDateString("en-GB")}
+              {lead.listed_at && (
+                <span className="ml-2 text-orange-500 font-medium">
+                  Listed {new Date(lead.listed_at).toLocaleDateString("en-GB")}
+                </span>
+              )}
+            </span>
             {lead.listing_url && (
               <a href={lead.listing_url} target="_blank" rel="noopener noreferrer"
                 className="text-blue-500 hover:underline font-medium">
