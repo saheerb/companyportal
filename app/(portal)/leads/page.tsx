@@ -39,7 +39,7 @@ const STATUS_GROUPS = [
   {
     label: "Calling",
     color: "bg-blue-500",
-    statuses: ["Called - No Answer", "Called - Voicemail Left", "Called - Callback Req.", "WhatsApp Msg Sent"],
+    statuses: ["Called - No Answer", "Called - Voicemail Left", "Called - Callback Req.", "WhatsApp Msg Sent", "Check this"],
   },
   {
     label: "In Progress",
