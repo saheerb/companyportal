@@ -476,30 +476,40 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpd
             </p>
           )}
           {lead.address && <p className="text-xs text-gray-400 mt-0.5">{lead.address}</p>}
-          {(lead.utm_source || lead.gclid) && (
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {lead.utm_source && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                  lead.utm_source === 'google' ? 'bg-blue-100 text-blue-700' :
-                  ['facebook','fb','ig','instagram'].includes(lead.utm_source) ? 'bg-indigo-100 text-indigo-700' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {lead.utm_source === 'google' ? '🔵' : ['facebook','fb','ig','instagram'].includes(lead.utm_source) ? '🟣' : '📌'} {lead.utm_source}
-                  {lead.utm_medium && <span className="font-normal opacity-70 ml-1">· {lead.utm_medium}</span>}
+          {(() => {
+            const src = lead.utm_source?.toLowerCase();
+            const med = lead.utm_medium?.toLowerCase();
+            const isPaidGoogle = (src === 'google' && med === 'cpc') || (!src && !!lead.gclid);
+            const isOrgGoogle  = src === 'google' && med !== 'cpc';
+            const isFb         = src === 'fb' || src === 'facebook';
+            const isIg         = src === 'ig' || src === 'instagram';
+            const isDirect     = !src && !lead.gclid;
+
+            const label = isPaidGoogle ? 'Paid Google'
+                        : isOrgGoogle  ? 'Google'
+                        : isFb         ? 'FB'
+                        : isIg         ? 'IG'
+                        : isDirect     ? 'Direct'
+                        : src ?? null;
+
+            const style = isPaidGoogle || isOrgGoogle ? 'bg-blue-100 text-blue-700'
+                        : isFb || isIg               ? 'bg-indigo-100 text-indigo-700'
+                        : isDirect                   ? 'bg-gray-100 text-gray-400'
+                        :                              'bg-gray-100 text-gray-600';
+
+            return label ? (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${style}`}>
+                  {label}
                 </span>
-              )}
-              {lead.gclid && !lead.utm_source && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
-                  🔵 google ads
-                </span>
-              )}
-              {lead.utm_campaign && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-normal bg-gray-100 text-gray-500">
-                  {lead.utm_campaign}
-                </span>
-              )}
-            </div>
-          )}
+                {lead.utm_campaign && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-normal bg-gray-100 text-gray-500">
+                    {lead.utm_campaign}
+                  </span>
+                )}
+              </div>
+            ) : null;
+          })()}
         </div>
 
         {/* Offered price banner */}
