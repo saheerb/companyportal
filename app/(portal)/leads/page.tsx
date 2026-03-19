@@ -35,6 +35,7 @@ type Lead = {
   utm_medium: string | null;
   utm_campaign: string | null;
   gclid: string | null;
+  fbclid: string | null;
 };
 
 type LogEntry = { id: string; ts: string; msg: string; note?: string };
@@ -481,9 +482,9 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpd
             const med = lead.utm_medium?.toLowerCase();
             const isPaidGoogle = (src === 'google' && med === 'cpc') || (!src && !!lead.gclid);
             const isOrgGoogle  = src === 'google' && med !== 'cpc';
-            const isFb         = src === 'fb' || src === 'facebook';
+            const isFb         = src === 'fb' || src === 'facebook' || (!src && !!lead.fbclid);
             const isIg         = src === 'ig' || src === 'instagram';
-            const isDirect     = !src && !lead.gclid;
+            const isDirect     = !src && !lead.gclid && !lead.fbclid;
 
             const label = isPaidGoogle ? 'Paid Google'
                         : isOrgGoogle  ? 'Google'
