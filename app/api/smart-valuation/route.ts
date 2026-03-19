@@ -64,17 +64,16 @@ export async function GET(req: NextRequest) {
   const FALLBACK_RATIO = 0.88;
 
   if (rows.length === 0) {
-    const estimatedWbac = auctionValue * FALLBACK_RATIO;
     return NextResponse.json({
-      smartOffer: Math.round((estimatedWbac + 150) / 50) * 50,
-      estimatedWbac: Math.round(estimatedWbac),
-      wbacRatio: FALLBACK_RATIO,
+      smartOffer: auctionValue,
+      estimatedWbac: null,
+      wbacRatio: null,
       confidence: "low",
       bandDataPoints: 0,
       ageBand: currentAgeBand,
       mileageBand: currentMileageBand,
       apiValue: auctionValue,
-      margin: 150,
+      margin: null,
     });
   }
 
