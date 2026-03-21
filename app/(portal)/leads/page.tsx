@@ -383,6 +383,8 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpd
   const [showLog, setShowLog] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [atLoading, setAtLoading] = useState(false);
+  const [atError, setAtError] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
@@ -397,6 +399,25 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpd
     setDeleting(true);
     await fetch(`/api/leads?id=${lead.id}`, { method: "DELETE" });
     onDelete(lead.id);
+  }
+
+  async function fetchAtValuation() {
+    setAtLoading(true);
+    setAtError(null);
+    try {
+      const res = await fetch("/api/at-valuate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lead.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setAtError(data.error || "Failed"); return; }
+      setLead(l => ({ ...l, autotrader_retail_price: data.retail, autotrader_price: data.trade }));
+    } catch {
+      setAtError("Network error");
+    } finally {
+      setAtLoading(false);
+    }
   }
 
 
@@ -546,6 +567,18 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpd
         </div>
 
         {/* Competitor prices */}
+        {lead.auction_value != null && (
+          <div className="px-4 pb-2">
+            <button
+              onClick={fetchAtValuation}
+              disabled={atLoading}
+              className="text-xs border border-blue-200 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 disabled:opacity-50 font-medium"
+            >
+              {atLoading ? "Fetching AT prices…" : "Fetch AT Retail + Trade"}
+            </button>
+            {atError && <p className="text-xs text-red-500 mt-1">{atError}</p>}
+          </div>
+        )}
         {(lead.autotrader_price || lead.autotrader_retail_price || lead.motors_price || lead.wbac_price || lead.scrap_price) && (
           <div className="px-4 pb-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Competitor Prices</p>
