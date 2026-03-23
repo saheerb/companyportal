@@ -13,13 +13,17 @@ type Appointment = {
   address: string | null;
   postcode: string | null;
   note: string | null;
+  notes: string | null;
   date: string;
   time: string;
   status: string;
 };
 
+const STATUS_OPTIONS = ["confirmed", "done", "cancelled"];
+
 function statusBadge(s: string) {
   if (s === "confirmed") return "bg-green-100 text-green-800";
+  if (s === "done")      return "bg-blue-100 text-blue-800";
   if (s === "cancelled") return "bg-red-100 text-red-800";
   return "bg-gray-100 text-gray-800";
 }
@@ -30,12 +34,99 @@ function formatDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
+// ─── Edit Modal ────────────────────────────────────────────────────────────────
+function EditModal({ appt, onClose, onSaved }: { appt: Appointment; onClose: () => void; onSaved: (updated: Appointment) => void }) {
+  const [form, setForm] = useState({
+    date:   appt.date,
+    time:   appt.time,
+    status: appt.status,
+    notes:  appt.notes ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const f = (key: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm({ ...form, [key]: e.target.value });
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    const res = await fetch("/api/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: appt.id, ...form }),
+    });
+    const updated = await res.json();
+    setSaving(false);
+    onSaved(updated);
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="p-5 border-b flex justify-between items-start">
+          <div>
+            <h3 className="font-bold text-lg">{appt.name}</h3>
+            <p className="text-sm text-gray-500">{appt.reg || "No reg"} · {appt.email}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+        </div>
+
+        <form onSubmit={save} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Date</label>
+              <input type="date" value={form.date} onChange={f("date")} required
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Time</label>
+              <input type="time" value={form.time} onChange={f("time")} required
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Status</label>
+            <select value={form.status} onChange={f("status")}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none capitalize">
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Notes</label>
+            <textarea value={form.notes} onChange={f("notes")} rows={3}
+              placeholder="Add internal notes…"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50 font-medium">
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [cancelling, setCancelling] = useState<number | null>(null);
+  const [editing, setEditing] = useState<Appointment | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -49,16 +140,8 @@ export default function AppointmentsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function cancelAppointment(id: number) {
-    if (!confirm("Cancel this appointment?")) return;
-    setCancelling(id);
-    await fetch("/api/appointments", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status: "cancelled" }),
-    });
-    setCancelling(null);
-    load();
+  function handleSaved(updated: Appointment) {
+    setAppointments((prev) => prev.map((a) => a.id === updated.id ? updated : a));
   }
 
   return (
@@ -83,8 +166,9 @@ export default function AppointmentsPage() {
           className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All statuses</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="cancelled">Cancelled</option>
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+          ))}
         </select>
       </div>
 
@@ -102,7 +186,7 @@ export default function AppointmentsPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Date", "Time", "Name", "Phone", "Reg", "Address", "Note", "Status", ""].map((h) => (
+                {["Date", "Time", "Name", "Phone", "Reg", "Address", "Customer Note", "Notes", "Status", ""].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                     {h}
                   </th>
@@ -123,28 +207,34 @@ export default function AppointmentsPage() {
                   <td className="px-4 py-3 text-gray-700 text-xs">
                     {a.address ? <>{a.address}{a.postcode ? `, ${a.postcode}` : ""}</> : "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 text-xs max-w-xs truncate">{a.note || "—"}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs max-w-[140px] truncate">{a.note || "—"}</td>
+                  <td className="px-4 py-3 text-gray-700 text-xs max-w-[160px] truncate">{a.notes || "—"}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${statusBadge(a.status)}`}>
                       {a.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {a.status === "confirmed" && (
-                      <button
-                        onClick={() => cancelAppointment(a.id)}
-                        disabled={cancelling === a.id}
-                        className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
-                      >
-                        {cancelling === a.id ? "Cancelling…" : "Cancel"}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setEditing(a)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Edit
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {editing && (
+        <EditModal
+          appt={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+        />
       )}
     </div>
   );

@@ -39,12 +39,24 @@ export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, status } = await req.json();
-  if (!id || !status) return NextResponse.json({ error: "Missing id or status" }, { status: 400 });
+  const { id, status, date, time, notes } = await req.json();
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  let idx = 1;
+
+  if (status !== undefined) { sets.push(`status = $${idx++}`); vals.push(status); }
+  if (date !== undefined)   { sets.push(`date = $${idx++}`);   vals.push(date); }
+  if (time !== undefined)   { sets.push(`time = $${idx++}`);   vals.push(time); }
+  if (notes !== undefined)  { sets.push(`notes = $${idx++}`);  vals.push(notes); }
+
+  if (!sets.length) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+
+  vals.push(id);
   const { rows } = await pool.query(
-    `UPDATE appointments SET status = $1 WHERE id = $2 RETURNING *`,
-    [status, id]
+    `UPDATE appointments SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`,
+    vals
   );
   if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
