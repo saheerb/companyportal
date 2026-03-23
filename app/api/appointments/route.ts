@@ -39,13 +39,14 @@ export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, status, date, time, notes } = await req.json();
+  const { id, status, date, time, notes, reg } = await req.json();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;
 
+  if (reg !== undefined)    { sets.push(`reg = $${idx++}`);    vals.push(reg || null); }
   if (status !== undefined) { sets.push(`status = $${idx++}`); vals.push(status); }
   if (date !== undefined)   { sets.push(`date = $${idx++}`);   vals.push(date); }
   if (time !== undefined)   { sets.push(`time = $${idx++}`);   vals.push(time); }

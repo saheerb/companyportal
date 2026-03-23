@@ -45,6 +45,7 @@ function formatDate(d: string) {
 // ─── Edit Modal ────────────────────────────────────────────────────────────────
 function EditModal({ appt, onClose, onSaved }: { appt: Appointment; onClose: () => void; onSaved: (updated: Appointment) => void }) {
   const [form, setForm] = useState({
+    reg:    appt.reg ?? "",
     date:   appt.date,
     time:   appt.time,
     status: appt.status,
@@ -82,6 +83,13 @@ function EditModal({ appt, onClose, onSaved }: { appt: Appointment; onClose: () 
         </div>
 
         <form onSubmit={save} className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Registration</label>
+            <input type="text" value={form.reg} onChange={f("reg")}
+              placeholder="e.g. AB12 CDE"
+              className="w-full border rounded-lg px-3 py-2 text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Date</label>
