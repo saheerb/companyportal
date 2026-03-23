@@ -127,6 +127,7 @@ export default function AppointmentsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [editing, setEditing] = useState<Appointment | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -142,6 +143,14 @@ export default function AppointmentsPage() {
 
   function handleSaved(updated: Appointment) {
     setAppointments((prev) => prev.map((a) => a.id === updated.id ? updated : a));
+  }
+
+  async function deleteAppointment(id: number) {
+    if (!confirm("Permanently delete this appointment?")) return;
+    setDeleting(id);
+    await fetch(`/api/appointments?id=${id}`, { method: "DELETE" });
+    setAppointments((prev) => prev.filter((a) => a.id !== id));
+    setDeleting(null);
   }
 
   return (
@@ -215,12 +224,21 @@ export default function AppointmentsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <button
-                      onClick={() => setEditing(a)}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Edit
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setEditing(a)}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => deleteAppointment(a.id)}
+                        disabled={deleting === a.id}
+                        className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                      >
+                        {deleting === a.id ? "Deleting…" : "Delete"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
