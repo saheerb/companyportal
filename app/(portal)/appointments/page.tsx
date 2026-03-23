@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+
+type InventoryCar = {
+  id: number;
+  reg: string;
+  car_name: string;
+  status: string;
+};
 
 type Appointment = {
   id: number;
@@ -120,6 +128,74 @@ function EditModal({ appt, onClose, onSaved }: { appt: Appointment; onClose: () 
   );
 }
 
+// ─── Car Picker Modal ──────────────────────────────────────────────────────────
+function CarPickerModal({ cars, onClose, onSelect }: { cars: InventoryCar[]; onClose: () => void; onSelect: (id: number) => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
+        <div className="p-5 border-b flex justify-between items-center">
+          <h3 className="font-bold text-base">Multiple cards found</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+        </div>
+        <div className="p-3 space-y-2">
+          {cars.map((car) => (
+            <button
+              key={car.id}
+              onClick={() => onSelect(car.id)}
+              className="w-full text-left px-4 py-3 rounded-lg border hover:bg-blue-50 hover:border-blue-300 transition-colors"
+            >
+              <div className="font-mono font-bold text-sm">{car.reg}</div>
+              <div className="text-sm text-gray-600">{car.car_name}</div>
+              <div className="text-xs text-gray-400 mt-0.5">{car.status}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Reg Link ──────────────────────────────────────────────────────────────────
+function RegLink({ reg }: { reg: string }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [pickerCars, setPickerCars] = useState<InventoryCar[] | null>(null);
+
+  async function handleClick() {
+    setLoading(true);
+    const res = await fetch(`/api/inventory?search=${encodeURIComponent(reg)}`);
+    const cars: InventoryCar[] = await res.json();
+    const matches = cars.filter((c) => c.reg.replace(/\s/g, "").toUpperCase() === reg.replace(/\s/g, "").toUpperCase());
+    setLoading(false);
+    if (matches.length === 0) {
+      alert("No inventory card found for " + reg);
+    } else if (matches.length === 1) {
+      router.push(`/inventory/${matches[0].id}`);
+    } else {
+      setPickerCars(matches);
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className="font-mono text-blue-600 hover:underline disabled:opacity-50 text-left"
+      >
+        {loading ? "…" : reg}
+      </button>
+      {pickerCars && (
+        <CarPickerModal
+          cars={pickerCars}
+          onClose={() => setPickerCars(null)}
+          onSelect={(id) => { setPickerCars(null); router.push(`/inventory/${id}`); }}
+        />
+      )}
+    </>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -212,7 +288,9 @@ export default function AppointmentsPage() {
                     <div className="text-xs text-gray-400">{a.email}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{a.phone || "—"}</td>
-                  <td className="px-4 py-3 font-mono text-gray-900 whitespace-nowrap">{a.reg || "—"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {a.reg ? <RegLink reg={a.reg} /> : "—"}
+                  </td>
                   <td className="px-4 py-3 text-gray-700 text-xs">
                     {a.address ? <>{a.address}{a.postcode ? `, ${a.postcode}` : ""}</> : "—"}
                   </td>
