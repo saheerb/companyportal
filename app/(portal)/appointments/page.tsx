@@ -163,55 +163,16 @@ function CarPickerModal({ cars, onClose, onSelect }: { cars: InventoryCar[]; onC
   );
 }
 
-// ─── Reg Link ──────────────────────────────────────────────────────────────────
-function RegLink({ reg }: { reg: string }) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [pickerCars, setPickerCars] = useState<InventoryCar[] | null>(null);
-
-  async function handleClick() {
-    setLoading(true);
-    const res = await fetch(`/api/inventory?search=${encodeURIComponent(reg)}`);
-    const cars: InventoryCar[] = await res.json();
-    const matches = cars.filter((c) => c.reg.replace(/\s/g, "").toUpperCase() === reg.replace(/\s/g, "").toUpperCase());
-    setLoading(false);
-    if (matches.length === 0) {
-      alert("No inventory card found for " + reg);
-    } else if (matches.length === 1) {
-      router.push(`/inventory/${matches[0].id}`);
-    } else {
-      setPickerCars(matches);
-    }
-  }
-
-  return (
-    <>
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        className="font-mono text-blue-600 hover:underline disabled:opacity-50 text-left"
-      >
-        {loading ? "…" : reg}
-      </button>
-      {pickerCars && (
-        <CarPickerModal
-          cars={pickerCars}
-          onClose={() => setPickerCars(null)}
-          onSelect={(id) => { setPickerCars(null); router.push(`/inventory/${id}`); }}
-        />
-      )}
-    </>
-  );
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 export default function AppointmentsPage() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [pickerCars, setPickerCars] = useState<InventoryCar[] | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -227,6 +188,20 @@ export default function AppointmentsPage() {
 
   function handleSaved(updated: Appointment) {
     setAppointments((prev) => prev.map((a) => a.id === updated.id ? updated : a));
+  }
+
+  async function openCar(reg: string | null) {
+    if (!reg) return;
+    const res = await fetch(`/api/inventory?search=${encodeURIComponent(reg)}`);
+    const cars: InventoryCar[] = await res.json();
+    const matches = cars.filter((c) => c.reg.replace(/\s/g, "").toUpperCase() === reg.replace(/\s/g, "").toUpperCase());
+    if (matches.length === 1) {
+      router.push(`/inventory/${matches[0].id}`);
+    } else if (matches.length > 1) {
+      setPickerCars(matches);
+    } else {
+      router.push(`/leads?search=${encodeURIComponent(reg)}`);
+    }
   }
 
   async function deleteAppointment(id: number) {
@@ -288,7 +263,11 @@ export default function AppointmentsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {appointments.map((a) => (
-                <tr key={a.id} className="hover:bg-gray-50">
+                <tr
+                  key={a.id}
+                  onClick={() => openCar(a.reg)}
+                  className={`hover:bg-blue-50 transition-colors ${a.reg ? "cursor-pointer" : ""}`}
+                >
                   <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{formatDate(a.date)}</td>
                   <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{a.time}</td>
                   <td className="px-4 py-3 text-gray-900 whitespace-nowrap">
@@ -296,9 +275,7 @@ export default function AppointmentsPage() {
                     <div className="text-xs text-gray-400">{a.email}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{a.phone || "—"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {a.reg ? <RegLink reg={a.reg} /> : "—"}
-                  </td>
+                  <td className="px-4 py-3 font-mono font-medium text-gray-900 whitespace-nowrap">{a.reg || "—"}</td>
                   <td className="px-4 py-3 text-gray-700 text-xs">
                     {a.address ? <>{a.address}{a.postcode ? `, ${a.postcode}` : ""}</> : "—"}
                   </td>
@@ -309,7 +286,7 @@ export default function AppointmentsPage() {
                       {a.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-3">
                       <button
                         onClick={() => setEditing(a)}
@@ -331,6 +308,14 @@ export default function AppointmentsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {pickerCars && (
+        <CarPickerModal
+          cars={pickerCars}
+          onClose={() => setPickerCars(null)}
+          onSelect={(id) => { setPickerCars(null); router.push(`/inventory/${id}`); }}
+        />
       )}
 
       {editing && (
