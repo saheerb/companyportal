@@ -3,13 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-type InventoryCar = {
-  id: number;
-  reg: string;
-  car_name: string;
-  status: string;
-};
-
 type Appointment = {
   id: number;
   created_at: string;
@@ -136,33 +129,6 @@ function EditModal({ appt, onClose, onSaved }: { appt: Appointment; onClose: () 
   );
 }
 
-// ─── Car Picker Modal ──────────────────────────────────────────────────────────
-function CarPickerModal({ cars, onClose, onSelect }: { cars: InventoryCar[]; onClose: () => void; onSelect: (id: number) => void }) {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
-        <div className="p-5 border-b flex justify-between items-center">
-          <h3 className="font-bold text-base">Multiple cards found</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
-        </div>
-        <div className="p-3 space-y-2">
-          {cars.map((car) => (
-            <button
-              key={car.id}
-              onClick={() => onSelect(car.id)}
-              className="w-full text-left px-4 py-3 rounded-lg border hover:bg-blue-50 hover:border-blue-300 transition-colors"
-            >
-              <div className="font-mono font-bold text-sm">{car.reg}</div>
-              <div className="text-sm text-gray-600">{car.car_name}</div>
-              <div className="text-xs text-gray-400 mt-0.5">{car.status}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 export default function AppointmentsPage() {
   const router = useRouter();
@@ -172,7 +138,6 @@ export default function AppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
-  const [pickerCars, setPickerCars] = useState<InventoryCar[] | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -192,15 +157,13 @@ export default function AppointmentsPage() {
 
   async function openCar(a: Appointment) {
     if (!a.reg) return;
-    const res = await fetch(`/api/inventory?search=${encodeURIComponent(a.reg)}`);
-    const cars: InventoryCar[] = await res.json();
-    const matches = cars.filter((c) => c.reg.replace(/\s/g, "").toUpperCase() === a.reg!.replace(/\s/g, "").toUpperCase());
+    const res = await fetch(`/api/leads?search=${encodeURIComponent(a.reg)}`);
+    const leads = await res.json();
+    const matches = leads.filter((l: { reg: string; id: number }) =>
+      l.reg.replace(/\s/g, "").toUpperCase() === a.reg!.replace(/\s/g, "").toUpperCase()
+    );
     if (matches.length === 1) {
-      router.push(`/inventory/${matches[0].id}`);
-    } else if (matches.length > 1) {
-      setPickerCars(matches);
-    } else if (a.lead_id) {
-      router.push(`/leads?open=${a.lead_id}`);
+      router.push(`/leads?open=${matches[0].id}`);
     } else {
       router.push(`/leads?search=${encodeURIComponent(a.reg)}`);
     }
@@ -312,13 +275,6 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {pickerCars && (
-        <CarPickerModal
-          cars={pickerCars}
-          onClose={() => setPickerCars(null)}
-          onSelect={(id) => { setPickerCars(null); router.push(`/inventory/${id}`); }}
-        />
-      )}
 
       {editing && (
         <EditModal
