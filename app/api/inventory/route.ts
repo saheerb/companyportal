@@ -38,6 +38,37 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(rows);
 }
 
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id, ...fields } = await req.json();
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  const allowed = ["reg", "car_name", "colour", "mileage_bought", "purchase_price", "purchase_date", "status", "location", "notes"];
+  const numeric = new Set(["mileage_bought", "purchase_price"]);
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  let idx = 1;
+
+  for (const key of allowed) {
+    if (key in fields) {
+      const val = numeric.has(key) && fields[key] === "" ? null : fields[key] || (fields[key] === "" ? null : fields[key]);
+      sets.push(`${key} = $${idx++}`);
+      vals.push(val);
+    }
+  }
+  if (!sets.length) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+
+  vals.push(id);
+  const { rows } = await pool.query(
+    `UPDATE inventory SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`,
+    vals
+  );
+  if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(rows[0]);
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

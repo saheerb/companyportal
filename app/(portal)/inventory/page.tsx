@@ -12,8 +12,10 @@ type Car = {
   colour: string;
   status: string;
   purchase_price: number | null;
+  purchase_date: string | null;
   location: string | null;
   mileage_bought: number | null;
+  notes: string | null;
   created_at: string;
   lead_name: string | null;
 };
@@ -135,12 +137,114 @@ function AddCarModal({
   );
 }
 
+function EditCarModal({ car, onClose, onSaved }: { car: Car; onClose: () => void; onSaved: (updated: Car) => void }) {
+  const [form, setForm] = useState({
+    reg: car.reg,
+    car_name: car.car_name ?? "",
+    colour: car.colour ?? "",
+    mileage_bought: car.mileage_bought != null ? String(car.mileage_bought) : "",
+    purchase_price: car.purchase_price != null ? String(car.purchase_price) : "",
+    purchase_date: car.purchase_date ?? "",
+    status: car.status,
+    location: car.location ?? "",
+    notes: car.notes ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const f = (key: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm({ ...form, [key]: e.target.value });
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    const res = await fetch("/api/inventory", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: car.id, ...form }),
+    });
+    const updated = await res.json();
+    setSaving(false);
+    onSaved(updated);
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Edit — {car.reg}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Reg *</label>
+              <input required value={form.reg} onChange={f("reg")}
+                className="w-full border rounded px-2 py-1.5 text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Car Name</label>
+              <input value={form.car_name} onChange={f("car_name")}
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Colour</label>
+              <input value={form.colour} onChange={f("colour")}
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Mileage</label>
+              <input type="number" value={form.mileage_bought} onChange={f("mileage_bought")}
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Purchase Price (£)</label>
+              <input type="number" value={form.purchase_price} onChange={f("purchase_price")}
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Purchase Date</label>
+              <input type="date" value={form.purchase_date} onChange={f("purchase_date")}
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+              <select value={form.status} onChange={f("status")}
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                {STATUSES.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+              <input value={form.location} onChange={f("location")}
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+            <textarea value={form.notes} onChange={f("notes")} rows={2}
+              className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm border rounded hover:bg-gray-50">Cancel</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function InventoryContent() {
   const [cars, setCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<Car | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -230,7 +334,7 @@ function InventoryContent() {
               {cars.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">No cars found.</td></tr>
               ) : cars.map((car) => (
-                <tr key={car.id} className="hover:bg-gray-50">
+                <tr key={car.id} onClick={() => setEditing(car)} className="hover:bg-blue-50 cursor-pointer transition-colors">
                   <td className="px-4 py-3 font-mono font-medium">{car.reg}</td>
                   <td className="px-4 py-3">{car.car_name}</td>
                   <td className="px-4 py-3 text-gray-500">{car.colour}</td>
@@ -246,7 +350,7 @@ function InventoryContent() {
                   <td className="px-4 py-3 text-gray-400 text-xs">
                     {new Date(car.created_at).toLocaleDateString("en-GB")}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <Link href={`/inventory/${car.id}`} className="text-xs text-blue-600 hover:underline">
                       View →
                     </Link>
@@ -263,6 +367,16 @@ function InventoryContent() {
           onClose={() => { setShowModal(false); router.replace("/inventory"); }}
           onSaved={loadCars}
           prefill={prefill}
+        />
+      )}
+      {editing && (
+        <EditCarModal
+          car={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setCars((prev) => prev.map((c) => c.id === updated.id ? { ...updated, lead_name: c.lead_name } : c));
+            setEditing(null);
+          }}
         />
       )}
     </div>
