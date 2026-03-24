@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Lead = {
   id: number;
@@ -676,10 +677,11 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpd
 }
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
-export default function LeadsPage() {
+function LeadsPageInner() {
+  const searchParams = useSearchParams();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") ?? "");
   const [hideClosed, setHideClosed] = useState(true);
 
   const load = useCallback(async () => {
@@ -756,3 +758,10 @@ export default function LeadsPage() {
   );
 }
 
+export default function LeadsPage() {
+  return (
+    <Suspense>
+      <LeadsPageInner />
+    </Suspense>
+  );
+}
