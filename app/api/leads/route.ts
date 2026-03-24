@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest) {
   // Field updates
   const allowed = [
     "status", "notes", "offered_price", "autotrader_price", "autotrader_retail_price",
-    "motors_price", "wbac_price", "scrap_price", "address",
+    "motors_price", "wbac_price", "scrap_price", "address", "hpi_clear",
   ];
   const numeric = new Set(["offered_price", "autotrader_price", "autotrader_retail_price", "motors_price", "wbac_price", "scrap_price"]);
   const sets: string[] = [];

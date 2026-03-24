@@ -31,6 +31,7 @@ type Lead = {
   status: string;
   notes: string | null;
   address: string | null;
+  hpi_clear: string | null;
   activity_log: string | null;
   created_at: string;
   utm_source: string | null;
@@ -97,6 +98,7 @@ function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void
     wbac_price: lead.wbac_price ?? "",
     scrap_price: lead.scrap_price ?? "",
     address: lead.address ?? "",
+    hpi_clear: lead.hpi_clear ?? "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -165,6 +167,13 @@ function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void
               className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
 
+          {/* HPI Clear */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">HPI Clear</label>
+            <input type="text" value={form.hpi_clear} onChange={f("hpi_clear")}
+              placeholder="e.g. Clear, Outstanding finance, Write-off…"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
@@ -507,6 +516,7 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete, highlight }: { lead: 
             </p>
           )}
           {lead.address && <p className="text-xs text-gray-400 mt-0.5">{lead.address}</p>}
+          {lead.hpi_clear && <p className="text-xs mt-0.5"><span className="font-semibold text-gray-500">HPI:</span> <span className="text-gray-700">{lead.hpi_clear}</span></p>}
           {(() => {
             const src = lead.utm_source?.toLowerCase();
             const med = lead.utm_medium?.toLowerCase();
