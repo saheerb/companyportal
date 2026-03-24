@@ -190,17 +190,19 @@ export default function AppointmentsPage() {
     setAppointments((prev) => prev.map((a) => a.id === updated.id ? updated : a));
   }
 
-  async function openCar(reg: string | null) {
-    if (!reg) return;
-    const res = await fetch(`/api/inventory?search=${encodeURIComponent(reg)}`);
+  async function openCar(a: Appointment) {
+    if (!a.reg) return;
+    const res = await fetch(`/api/inventory?search=${encodeURIComponent(a.reg)}`);
     const cars: InventoryCar[] = await res.json();
-    const matches = cars.filter((c) => c.reg.replace(/\s/g, "").toUpperCase() === reg.replace(/\s/g, "").toUpperCase());
+    const matches = cars.filter((c) => c.reg.replace(/\s/g, "").toUpperCase() === a.reg!.replace(/\s/g, "").toUpperCase());
     if (matches.length === 1) {
       router.push(`/inventory/${matches[0].id}`);
     } else if (matches.length > 1) {
       setPickerCars(matches);
+    } else if (a.lead_id) {
+      router.push(`/leads?open=${a.lead_id}`);
     } else {
-      router.push(`/leads?search=${encodeURIComponent(reg)}`);
+      router.push(`/leads?search=${encodeURIComponent(a.reg)}`);
     }
   }
 
@@ -265,7 +267,7 @@ export default function AppointmentsPage() {
               {appointments.map((a) => (
                 <tr
                   key={a.id}
-                  onClick={() => openCar(a.reg)}
+                  onClick={() => openCar(a)}
                   className={`hover:bg-blue-50 transition-colors ${a.reg ? "cursor-pointer" : ""}`}
                 >
                   <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{formatDate(a.date)}</td>
