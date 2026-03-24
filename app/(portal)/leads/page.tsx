@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 type Lead = {
   id: number;
@@ -388,6 +388,7 @@ function SmartOfferPanel({ leadId }: { leadId: number }) {
 
 // ─── Lead Card ─────────────────────────────────────────────────────────────────
 function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpdate: (l: Lead) => void; onDelete: (id: number) => void }) {
+  const router = useRouter();
   const [lead, setLead] = useState(initialLead);
   const [showEdit, setShowEdit] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -466,6 +467,19 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpd
               <button onClick={() => setShowEdit(true)}
                 className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700">
                 Edit
+              </button>
+              <button
+                onClick={() => {
+                  const p = new URLSearchParams();
+                  p.set("reg", lead.reg);
+                  if (lead.car_name) p.set("car_name", lead.car_name);
+                  if (lead.mileage) p.set("mileage_bought", String(lead.mileage));
+                  if (lead.offered_price) p.set("purchase_price", String(lead.offered_price));
+                  p.set("lead_id", String(lead.id));
+                  router.push(`/inventory?${p}`);
+                }}
+                className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700">
+                + Inventory
               </button>
               {confirmDelete ? (
                 <>
