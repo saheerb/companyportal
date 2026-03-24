@@ -155,18 +155,9 @@ export default function AppointmentsPage() {
     setAppointments((prev) => prev.map((a) => a.id === updated.id ? updated : a));
   }
 
-  async function openCar(a: Appointment) {
+  function openCar(a: Appointment) {
     if (!a.reg) return;
-    const res = await fetch(`/api/leads?search=${encodeURIComponent(a.reg)}`);
-    const leads = await res.json();
-    const matches = leads.filter((l: { reg: string; id: number }) =>
-      l.reg.replace(/\s/g, "").toUpperCase() === a.reg!.replace(/\s/g, "").toUpperCase()
-    );
-    if (matches.length === 1) {
-      router.push(`/leads?open=${matches[0].id}`);
-    } else {
-      router.push(`/leads?search=${encodeURIComponent(a.reg)}`);
-    }
+    router.push(`/leads?search=${encodeURIComponent(a.reg)}`);
   }
 
   async function deleteAppointment(id: number) {

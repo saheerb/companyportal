@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type Lead = {
   id: number;
@@ -388,7 +386,7 @@ function SmartOfferPanel({ leadId }: { leadId: number }) {
 }
 
 // ─── Lead Card ─────────────────────────────────────────────────────────────────
-function LeadCard({ lead: initialLead, onUpdate, onDelete, highlight }: { lead: Lead; onUpdate: (l: Lead) => void; onDelete: (id: number) => void; highlight?: boolean }) {
+function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpdate: (l: Lead) => void; onDelete: (id: number) => void }) {
   const [lead, setLead] = useState(initialLead);
   const [showEdit, setShowEdit] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -398,15 +396,8 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete, highlight }: { lead: 
   const [atError, setAtError] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setLead(initialLead); }, [initialLead]);
-
-  useEffect(() => {
-    if (highlight && cardRef.current) {
-      cardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [highlight]);
 
   const log: LogEntry[] = (() => { try { return JSON.parse(lead.activity_log || "[]"); } catch { return []; } })();
   const shown = shownToCustomer(lead);
@@ -460,7 +451,7 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete, highlight }: { lead: 
 
   return (
     <>
-      <div ref={cardRef} className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all ${highlight ? "border-blue-400 ring-2 ring-blue-300" : "border-gray-200"}`}>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {/* Card header */}
         <div className="p-4 pb-3">
           <div className="flex justify-between items-start mb-1">
@@ -685,13 +676,11 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete, highlight }: { lead: 
 }
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
-function LeadsPageInner() {
-  const searchParams = useSearchParams();
-  const openId = searchParams.get("open") ? Number(searchParams.get("open")) : null;
+export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(searchParams.get("search") ?? "");
-  const [hideClosed, setHideClosed] = useState(!searchParams.get("open"));
+  const [search, setSearch] = useState("");
+  const [hideClosed, setHideClosed] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -759,7 +748,7 @@ function LeadsPageInner() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {visible.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onUpdate={handleUpdate} onDelete={handleDelete} highlight={lead.id === openId} />
+            <LeadCard key={lead.id} lead={lead} onUpdate={handleUpdate} onDelete={handleDelete} />
           ))}
         </div>
       )}
@@ -767,10 +756,3 @@ function LeadsPageInner() {
   );
 }
 
-export default function LeadsPage() {
-  return (
-    <Suspense>
-      <LeadsPageInner />
-    </Suspense>
-  );
-}
