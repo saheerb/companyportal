@@ -243,21 +243,12 @@ export default function AppointmentsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => setEditing(a)}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteAppointment(a.id)}
-                        disabled={deleting === a.id}
-                        className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
-                      >
-                        {deleting === a.id ? "Deleting…" : "Delete"}
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setEditing(a)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Edit
+                    </button>
                   </td>
                 </tr>
               ))}
