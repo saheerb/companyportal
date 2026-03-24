@@ -89,6 +89,7 @@ function shownToCustomer(lead: Lead) {
 
 // ─── Edit Modal ────────────────────────────────────────────────────────────────
 function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void; onSaved: (updated: Lead) => void }) {
+  const router = useRouter();
   const [form, setForm] = useState({
     offered_price: lead.offered_price ?? "",
     autotrader_price: lead.autotrader_price ?? "",
@@ -174,7 +175,25 @@ function EditModal({ lead, onClose, onSaved }: { lead: Lead; onClose: () => void
               className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
 
-          <div className="flex gap-3 pt-1">
+          <div className="pt-1 border-t">
+            <button
+              type="button"
+              onClick={() => {
+                const p = new URLSearchParams();
+                p.set("reg", lead.reg);
+                if (lead.car_name) p.set("car_name", lead.car_name);
+                if (lead.mileage) p.set("mileage_bought", String(lead.mileage));
+                if (lead.offered_price) p.set("purchase_price", String(lead.offered_price));
+                p.set("lead_id", String(lead.id));
+                router.push(`/inventory?${p}`);
+              }}
+              className="w-full border border-green-600 text-green-700 rounded-lg py-2 text-sm hover:bg-green-50 font-medium"
+            >
+              Add to Inventory
+            </button>
+          </div>
+
+          <div className="flex gap-3">
             <button type="button" onClick={onClose} className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50 font-medium">
               {saving ? "Saving…" : "Save Changes"}
@@ -388,7 +407,6 @@ function SmartOfferPanel({ leadId }: { leadId: number }) {
 
 // ─── Lead Card ─────────────────────────────────────────────────────────────────
 function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpdate: (l: Lead) => void; onDelete: (id: number) => void }) {
-  const router = useRouter();
   const [lead, setLead] = useState(initialLead);
   const [showEdit, setShowEdit] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -467,19 +485,6 @@ function LeadCard({ lead: initialLead, onUpdate, onDelete }: { lead: Lead; onUpd
               <button onClick={() => setShowEdit(true)}
                 className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700">
                 Edit
-              </button>
-              <button
-                onClick={() => {
-                  const p = new URLSearchParams();
-                  p.set("reg", lead.reg);
-                  if (lead.car_name) p.set("car_name", lead.car_name);
-                  if (lead.mileage) p.set("mileage_bought", String(lead.mileage));
-                  if (lead.offered_price) p.set("purchase_price", String(lead.offered_price));
-                  p.set("lead_id", String(lead.id));
-                  router.push(`/inventory?${p}`);
-                }}
-                className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700">
-                + Inventory
               </button>
               {confirmDelete ? (
                 <>
