@@ -62,6 +62,8 @@ export async function initDb() {
     )
   `);
 
+  await pool.query(`ALTER TABLE finance_entries ADD COLUMN IF NOT EXISTS vat_claimable BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE finance_entries ADD COLUMN IF NOT EXISTS off_the_records BOOLEAN NOT NULL DEFAULT FALSE`);
   await pool.query(`ALTER TABLE official_records ADD COLUMN IF NOT EXISTS investment_id INTEGER REFERENCES investments(id) ON DELETE SET NULL`);
 
   await pool.query(`

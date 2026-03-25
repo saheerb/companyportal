@@ -36,18 +36,18 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { type, category, description, amount, entry_date, inventory_id, lead_id, notes } = body;
+  const { type, category, description, amount, entry_date, inventory_id, lead_id, notes, vat_claimable, off_the_records } = body;
 
   if (!type || !category || !description || amount === undefined) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO finance_entries (type, category, description, amount, entry_date, inventory_id, lead_id, notes, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO finance_entries (type, category, description, amount, entry_date, inventory_id, lead_id, notes, vat_claimable, off_the_records, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
     [type, category, description, amount, entry_date || new Date().toISOString().slice(0, 10),
-     inventory_id || null, lead_id || null, notes, session.user?.name ?? null]
+     inventory_id || null, lead_id || null, notes, vat_claimable || false, off_the_records || false, session.user?.name ?? null]
   );
   return NextResponse.json(rows[0], { status: 201 });
 }
@@ -60,7 +60,7 @@ export async function PATCH(req: NextRequest) {
   const { id, ...fields } = body;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  const allowed = ["type", "category", "description", "amount", "entry_date", "inventory_id", "lead_id", "notes"];
+  const allowed = ["type", "category", "description", "amount", "entry_date", "inventory_id", "lead_id", "notes", "vat_claimable", "off_the_records"];
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;

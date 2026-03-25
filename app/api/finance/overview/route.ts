@@ -19,8 +19,9 @@ export async function GET(req: NextRequest) {
     `),
     pool.query(`
       SELECT
-        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS total_income,
-        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS total_expenses
+        COALESCE(SUM(CASE WHEN type = 'income' AND off_the_records = FALSE THEN amount ELSE 0 END), 0) AS total_income,
+        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS total_expenses,
+        COALESCE(SUM(CASE WHEN type = 'income' AND off_the_records = TRUE THEN amount ELSE 0 END), 0) AS off_the_records_balance
       FROM finance_entries
     `),
   ]);
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
     cars_in_stock: Number(stock.rows[0].cars_in_stock),
     total_income: Number(finance.rows[0].total_income),
     total_expenses: Number(finance.rows[0].total_expenses),
+    off_the_records_balance: Number(finance.rows[0].off_the_records_balance),
   });
 }
 

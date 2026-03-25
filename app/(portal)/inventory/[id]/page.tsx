@@ -28,6 +28,8 @@ type FinanceEntry = {
   amount: number;
   entry_date: string;
   notes: string | null;
+  vat_claimable: boolean;
+  off_the_records: boolean;
 };
 
 type Record_ = {
@@ -41,7 +43,8 @@ type Record_ = {
 };
 
 const STATUSES = ["Bought", "Being Prepped", "Listed for Sale", "Sold"];
-const CATEGORIES = ["car_sale", "purchase", "repair", "fee", "other"];
+const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "preparation", "delivery", "commission", "other"];
+const INCOME_CATEGORIES = ["car_sale", "other"];
 const DOC_TYPES = ["v5c", "mot", "contract", "invoice", "other"];
 
 const statusColors: Record<string, string> = {
@@ -70,8 +73,9 @@ export default function CarDetailPage() {
   // Finance state
   const [showAddFinance, setShowAddFinance] = useState(false);
   const [financeForm, setFinanceForm] = useState({
-    type: "expense", category: "repair", description: "", amount: "",
+    type: "expense", category: "car_purchase", description: "", amount: "",
     entry_date: new Date().toISOString().slice(0, 10), notes: "",
+    vat_claimable: false, off_the_records: false,
   });
   const [savingFinance, setSavingFinance] = useState(false);
   const [editingFinance, setEditingFinance] = useState<FinanceEntry | null>(null);
@@ -142,7 +146,7 @@ export default function CarDetailPage() {
       setShowAddFinance(false);
     }
     setSavingFinance(false);
-    setFinanceForm({ type: "expense", category: "repair", description: "", amount: "", entry_date: new Date().toISOString().slice(0, 10), notes: "" });
+    setFinanceForm({ type: "expense", category: "car_purchase", description: "", amount: "", entry_date: new Date().toISOString().slice(0, 10), notes: "", vat_claimable: false, off_the_records: false });
     load();
   }
 
@@ -150,6 +154,7 @@ export default function CarDetailPage() {
     setFinanceForm({
       type: f.type, category: f.category, description: f.description,
       amount: String(f.amount), entry_date: f.entry_date, notes: f.notes ?? "",
+      vat_claimable: f.vat_claimable, off_the_records: f.off_the_records,
     });
     setEditingFinance(f);
     setShowAddFinance(false);
@@ -338,7 +343,10 @@ export default function CarDetailPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Type</label>
-                <select value={financeForm.type} onChange={ff("type")}
+                <select value={financeForm.type} onChange={(e) => {
+                  const t = e.target.value;
+                  setFinanceForm({ ...financeForm, type: t, category: t === "expense" ? "car_purchase" : "car_sale", vat_claimable: false, off_the_records: false });
+                }}
                   className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                   <option value="income">Income</option>
                   <option value="expense">Expense</option>
@@ -348,7 +356,9 @@ export default function CarDetailPage() {
                 <label className="block text-xs text-gray-500 mb-1">Category</label>
                 <select value={financeForm.category} onChange={ff("category")}
                   className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                  {(financeForm.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map((c) => (
+                    <option key={c} value={c}>{c.replace(/_/g, " ")}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -371,6 +381,26 @@ export default function CarDetailPage() {
                 <input value={financeForm.notes} onChange={ff("notes")}
                   className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
               </div>
+              {financeForm.type === "expense" && (
+                <div className="col-span-2 md:col-span-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={financeForm.vat_claimable}
+                      onChange={(e) => setFinanceForm({ ...financeForm, vat_claimable: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600" />
+                    <span className="text-sm text-gray-700">VAT claimable</span>
+                  </label>
+                </div>
+              )}
+              {financeForm.type === "income" && (
+                <div className="col-span-2 md:col-span-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={financeForm.off_the_records}
+                      onChange={(e) => setFinanceForm({ ...financeForm, off_the_records: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-600" />
+                    <span className="text-sm text-gray-700">Off the records</span>
+                  </label>
+                </div>
+              )}
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setShowAddFinance(false); setEditingFinance(null); }}
@@ -407,7 +437,12 @@ export default function CarDetailPage() {
                     </span>
                   </td>
                   <td className="py-2 pr-4 text-gray-500">{f.category}</td>
-                  <td className="py-2 pr-4">{f.description}{f.notes && <span className="text-xs text-gray-400 ml-1">— {f.notes}</span>}</td>
+                  <td className="py-2 pr-4">
+                    {f.description}
+                    {f.notes && <span className="text-xs text-gray-400 ml-1">— {f.notes}</span>}
+                    {f.vat_claimable && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">VAT</span>}
+                    {f.off_the_records && <span className="ml-2 text-xs">🔒</span>}
+                  </td>
                   <td className={`py-2 pr-4 text-right font-medium ${f.type === "income" ? "text-green-600" : "text-red-600"}`}>
                     {f.type === "expense" ? "−" : "+"}{fmt(Number(f.amount))}
                   </td>

@@ -13,6 +13,8 @@ type Entry = {
   car_reg: string | null;
   car_name: string | null;
   notes: string | null;
+  vat_claimable: boolean;
+  off_the_records: boolean;
 };
 
 type Car = { id: number; reg: string; car_name: string };
@@ -29,9 +31,11 @@ type Overview = {
   cars_in_stock: number;
   total_income: number;
   total_expenses: number;
+  off_the_records_balance: number;
 };
 
-const CATEGORIES = ["car_sale", "purchase", "repair", "fee", "other"];
+const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "preparation", "delivery", "commission", "other"];
+const INCOME_CATEGORIES  = ["car_sale", "other"];
 const INVESTMENT_TYPES = ["SEIS", "Personal", "Other"];
 
 function fmt(n: number) {
@@ -178,6 +182,8 @@ function AddEntryModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     entry_date: new Date().toISOString().slice(0, 10),
     inventory_id: "",
     notes: "",
+    vat_claimable: false,
+    off_the_records: false,
   });
   const [cars, setCars] = useState<Car[]>([]);
   const [saving, setSaving] = useState(false);
@@ -207,7 +213,10 @@ function AddEntryModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Type *</label>
-              <select required value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
+              <select required value={form.type} onChange={(e) => {
+                const t = e.target.value;
+                setForm({ ...form, type: t, category: t === "expense" ? "car_purchase" : "car_sale", vat_claimable: false, off_the_records: false });
+              }}
                 className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 <option value="income">Income</option>
                 <option value="expense">Expense</option>
@@ -217,7 +226,9 @@ function AddEntryModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
               <label className="block text-xs font-medium text-gray-600 mb-1">Category *</label>
               <select required value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
                 className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                {(form.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map((c) => (
+                  <option key={c} value={c}>{c.replace(/_/g, " ")}</option>
+                ))}
               </select>
             </div>
             <div className="col-span-2">
@@ -248,6 +259,24 @@ function AddEntryModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
               <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 rows={2} className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
+            {form.type === "expense" && (
+              <div className="col-span-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.vat_claimable} onChange={(e) => setForm({ ...form, vat_claimable: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600" />
+                  <span className="text-sm text-gray-700">VAT claimable</span>
+                </label>
+              </div>
+            )}
+            {form.type === "income" && (
+              <div className="col-span-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.off_the_records} onChange={(e) => setForm({ ...form, off_the_records: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-gray-600" />
+                  <span className="text-sm text-gray-700">Off the records</span>
+                </label>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm border rounded hover:bg-gray-50">Cancel</button>
@@ -336,7 +365,7 @@ function FinanceContent() {
           <div className="bg-white rounded-lg border p-4">
             <p className="text-xs text-gray-400 mb-1">Total Revenue</p>
             <p className="text-xl font-bold text-green-600">{fmt(overview?.total_income ?? 0)}</p>
-            <p className="text-xs text-gray-400 mt-1">all time</p>
+            <p className="text-xs text-gray-400 mt-1">excl. off-the-records</p>
           </div>
           <div className="bg-white rounded-lg border p-4">
             <p className="text-xs text-gray-400 mb-1">Total Costs</p>
@@ -348,6 +377,13 @@ function FinanceContent() {
             <p className={`text-xl font-bold ${netPL >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(netPL)}</p>
             <p className="text-xs text-gray-400 mt-1">revenue − costs</p>
           </div>
+          {(overview?.off_the_records_balance ?? 0) > 0 && (
+            <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4">
+              <p className="text-xs text-gray-400 mb-1">🔒 Off-the-Records Balance</p>
+              <p className="text-xl font-bold text-gray-500">{fmt(overview?.off_the_records_balance ?? 0)}</p>
+              <p className="text-xs text-gray-400 mt-1">not in revenue</p>
+            </div>
+          )}
         </div>
 
         {/* Row 2 — Bank Balance */}
@@ -475,7 +511,11 @@ function FinanceContent() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500">{e.category}</td>
-                  <td className="px-4 py-3">{e.description}</td>
+                  <td className="px-4 py-3">
+                    <span>{e.description}</span>
+                    {e.vat_claimable && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">VAT</span>}
+                    {e.off_the_records && <span className="ml-2 text-xs">🔒</span>}
+                  </td>
                   <td className="px-4 py-3 text-gray-400 text-xs font-mono">{e.car_reg}</td>
                   <td className={`px-4 py-3 text-right font-medium ${e.type === "income" ? "text-green-600" : "text-red-600"}`}>
                     {e.type === "expense" ? "−" : "+"}{fmt(Number(e.amount))}
