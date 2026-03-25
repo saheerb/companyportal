@@ -43,7 +43,7 @@ type Record_ = {
 };
 
 const STATUSES = ["Bought", "Being Prepped", "Listed for Sale", "Sold"];
-const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "parts", "preparation", "delivery", "commission", "other"];
+const EXPENSE_CATEGORIES = ["repair_service", "parts", "preparation", "delivery", "commission", "other"];
 const INCOME_CATEGORIES = ["car_sale", "other"];
 const DOC_TYPES = ["v5c", "mot", "contract", "invoice", "other"];
 
@@ -62,7 +62,7 @@ function fmt(n: number | null) {
 export default function CarDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [data, setData] = useState<{ car: Car; finance: FinanceEntry[]; records: Record_[]; profit: number } | null>(null);
+  const [data, setData] = useState<{ car: Car; finance: FinanceEntry[]; records: Record_[]; profit: number; total_costs: number; has_sale: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Car edit state
@@ -213,7 +213,7 @@ export default function CarDetailPage() {
   }
 
   if (!data) return null;
-  const { car, finance, records, profit } = data;
+  const { car, finance, records, profit, total_costs, has_sale } = data;
   const ff = (key: keyof typeof financeForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setFinanceForm({ ...financeForm, [key]: e.target.value });
 
@@ -316,20 +316,30 @@ export default function CarDetailPage() {
       {(() => {
         const vatTotal = finance.filter(f => f.vat_claimable).reduce((s, f) => s + Number(f.amount), 0);
         const offRecordsTotal = finance.filter(f => f.off_the_records).reduce((s, f) => s + Number(f.amount), 0);
+        const totalIncome = finance.filter(f => f.type === "income").reduce((s, f) => s + Number(f.amount), 0);
         return (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { label: "Total Income", value: finance.filter(f => f.type === "income").reduce((s, f) => s + Number(f.amount), 0), color: "text-green-600" },
-                { label: "Total Expenses", value: finance.filter(f => f.type === "expense").reduce((s, f) => s + Number(f.amount), 0), color: "text-red-600" },
-                { label: "Profit", value: profit, color: profit >= 0 ? "text-green-700" : "text-red-600" },
-              ].map((s) => (
-                <div key={s.label} className="bg-white rounded-lg border p-4 text-center">
-                  <p className="text-xs text-gray-400">{s.label}</p>
-                  <p className={`text-2xl font-bold ${s.color}`}>{fmt(s.value)}</p>
+            {has_sale ? (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg border p-4 text-center">
+                  <p className="text-xs text-gray-400">Sale Income</p>
+                  <p className="text-2xl font-bold text-green-600">{fmt(totalIncome)}</p>
                 </div>
-              ))}
-            </div>
+                <div className="bg-white rounded-lg border p-4 text-center">
+                  <p className="text-xs text-gray-400">Total Costs</p>
+                  <p className="text-2xl font-bold text-red-600">{fmt(total_costs)}</p>
+                  <p className="text-xs text-gray-400 mt-1">incl. purchase price</p>
+                </div>
+                <div className="bg-white rounded-lg border p-4 text-center">
+                  <p className="text-xs text-gray-400">Profit</p>
+                  <p className={`text-2xl font-bold ${profit >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(profit)}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border p-4 text-center text-sm text-gray-400 italic">
+                Profit will show once a sale is recorded
+              </div>
+            )}
             {(vatTotal > 0 || offRecordsTotal > 0) && (
               <div className="grid grid-cols-2 gap-4">
                 {vatTotal > 0 && (
