@@ -13,27 +13,32 @@ type OfficialRecord = {
   created_at: string;
   car_reg: string | null;
   car_name: string | null;
+  investment_name: string | null;
   created_by: string | null;
 };
 
 type Car = { id: number; reg: string; car_name: string };
+type Investment = { id: number; name: string; type: string };
 
 const DOC_TYPES = ["v5c", "mot", "contract", "invoice", "other"];
 
-function UploadModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function UploadModal({ onClose, onSaved, prefillInvestmentId }: { onClose: () => void; onSaved: () => void; prefillInvestmentId?: string }) {
   const [form, setForm] = useState({
     doc_type: "other",
     doc_label: "",
     inventory_id: "",
+    investment_id: prefillInvestmentId ?? "",
     storage_ref: "",
     notes: "",
   });
   const [file, setFile] = useState<File | null>(null);
   const [cars, setCars] = useState<Car[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/inventory").then(r => r.json()).then(setCars);
+    fetch("/api/finance/overview").then(r => r.json()).then((d) => setInvestments(d.investments ?? []));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -89,6 +94,14 @@ function UploadModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
               </select>
             </div>
             <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Linked Investment (optional)</label>
+              <select value={form.investment_id} onChange={(e) => setForm({ ...form, investment_id: e.target.value })}
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="">None</option>
+                {investments.map((inv) => <option key={inv.id} value={inv.id}>{inv.name} ({inv.type})</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Upload File</label>
               <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="w-full text-sm border rounded px-2 py-1.5" />
@@ -124,16 +137,18 @@ function RecordsContent() {
   const [docTypeFilter, setDocTypeFilter] = useState("");
   const searchParams = useSearchParams();
   const inventoryId = searchParams.get("inventory_id");
+  const investmentId = searchParams.get("investment_id");
 
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (inventoryId) params.set("inventory_id", inventoryId);
+    if (investmentId) params.set("investment_id", investmentId);
     if (docTypeFilter) params.set("doc_type", docTypeFilter);
     const res = await fetch(`/api/records?${params}`);
     setRecords(await res.json());
     setLoading(false);
-  }, [inventoryId, docTypeFilter]);
+  }, [inventoryId, investmentId, docTypeFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -149,6 +164,7 @@ function RecordsContent() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Official Records</h2>
           {inventoryId && <p className="text-sm text-blue-600">Filtered by car</p>}
+          {investmentId && <p className="text-sm text-blue-600">Filtered by investment</p>}
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -195,6 +211,9 @@ function RecordsContent() {
                 {r.car_reg && (
                   <p className="text-xs text-gray-400 font-mono">{r.car_reg} {r.car_name}</p>
                 )}
+                {r.investment_name && (
+                  <p className="text-xs text-purple-500">Investment: {r.investment_name}</p>
+                )}
                 {r.notes && <p className="text-xs text-gray-400 mt-0.5">{r.notes}</p>}
               </div>
               <div className="flex items-center gap-3 text-sm">
@@ -217,7 +236,7 @@ function RecordsContent() {
         </div>
       )}
 
-      {showModal && <UploadModal onClose={() => setShowModal(false)} onSaved={load} />}
+      {showModal && <UploadModal onClose={() => setShowModal(false)} onSaved={load} prefillInvestmentId={investmentId ?? undefined} />}
     </div>
   );
 }

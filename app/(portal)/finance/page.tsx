@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 type Entry = {
   id: number;
@@ -263,6 +263,7 @@ function AddEntryModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 
 // ─── Finance Content ───────────────────────────────────────────────────────────
 function FinanceContent() {
+  const router = useRouter();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -415,6 +416,7 @@ function FinanceContent() {
                   <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{inv.type}</span>
                   <span className="font-medium">{fmt(Number(inv.amount))}</span>
                   <span className="text-gray-400 text-xs">{fmtDate(inv.investment_date)}</span>
+                  <button onClick={() => router.push(`/records?investment_id=${inv.id}`)} className="text-xs text-blue-600 hover:underline">Records →</button>
                   <button onClick={() => deleteOverviewItem("investment", inv.id)} className="text-xs text-red-400 hover:text-red-600">✕</button>
                 </div>
               ))}

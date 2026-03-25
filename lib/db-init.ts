@@ -62,6 +62,8 @@ export async function initDb() {
     )
   `);
 
+  await pool.query(`ALTER TABLE official_records ADD COLUMN IF NOT EXISTS investment_id INTEGER REFERENCES investments(id) ON DELETE SET NULL`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS official_records (
       id              SERIAL        PRIMARY KEY,

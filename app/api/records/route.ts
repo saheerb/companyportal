@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const inventory_id = searchParams.get("inventory_id");
+  const investment_id = searchParams.get("investment_id");
   const doc_type = searchParams.get("doc_type");
 
   const conditions: string[] = [];
@@ -16,14 +17,16 @@ export async function GET(req: NextRequest) {
   let idx = 1;
 
   if (inventory_id) { conditions.push(`r.inventory_id = $${idx++}`); values.push(inventory_id); }
+  if (investment_id) { conditions.push(`r.investment_id = $${idx++}`); values.push(investment_id); }
   if (doc_type) { conditions.push(`r.doc_type = $${idx++}`); values.push(doc_type); }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const { rows } = await pool.query(
-    `SELECT r.*, i.reg AS car_reg, i.car_name
+    `SELECT r.*, i.reg AS car_reg, i.car_name, inv.name AS investment_name
      FROM official_records r
      LEFT JOIN inventory i ON i.id = r.inventory_id
+     LEFT JOIN investments inv ON inv.id = r.investment_id
      ${where}
      ORDER BY r.created_at DESC`,
     values
@@ -36,17 +39,17 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { doc_type, doc_label, inventory_id, lead_id, file_path, storage_ref, notes } = body;
+  const { doc_type, doc_label, inventory_id, investment_id, lead_id, file_path, storage_ref, notes } = body;
 
   if (!doc_type || !doc_label) {
     return NextResponse.json({ error: "doc_type and doc_label required" }, { status: 400 });
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO official_records (doc_type, doc_label, inventory_id, lead_id, file_path, storage_ref, notes, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `INSERT INTO official_records (doc_type, doc_label, inventory_id, investment_id, lead_id, file_path, storage_ref, notes, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING *`,
-    [doc_type, doc_label, inventory_id || null, lead_id || null,
+    [doc_type, doc_label, inventory_id || null, investment_id || null, lead_id || null,
      file_path || null, storage_ref || null, notes, session.user?.name ?? null]
   );
   return NextResponse.json(rows[0], { status: 201 });
@@ -60,7 +63,7 @@ export async function PATCH(req: NextRequest) {
   const { id, ...fields } = body;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  const allowed = ["doc_type", "doc_label", "inventory_id", "lead_id", "file_path", "storage_ref", "notes"];
+  const allowed = ["doc_type", "doc_label", "inventory_id", "investment_id", "lead_id", "file_path", "storage_ref", "notes"];
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;
