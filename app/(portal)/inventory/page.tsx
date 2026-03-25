@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
@@ -244,7 +243,6 @@ function InventoryContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<Car | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -334,7 +332,7 @@ function InventoryContent() {
               {cars.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">No cars found.</td></tr>
               ) : cars.map((car) => (
-                <tr key={car.id} onClick={() => setEditing(car)} className="hover:bg-blue-50 cursor-pointer transition-colors">
+                <tr key={car.id} onClick={() => router.push(`/inventory/${car.id}`)} className="hover:bg-blue-50 cursor-pointer transition-colors">
                   <td className="px-4 py-3 font-mono font-medium">{car.reg}</td>
                   <td className="px-4 py-3">{car.car_name}</td>
                   <td className="px-4 py-3 text-gray-500">{car.colour}</td>
@@ -350,11 +348,6 @@ function InventoryContent() {
                   <td className="px-4 py-3 text-gray-400 text-xs">
                     {new Date(car.created_at).toLocaleDateString("en-GB")}
                   </td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <Link href={`/inventory/${car.id}`} className="text-xs text-blue-600 hover:underline">
-                      View →
-                    </Link>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -367,16 +360,6 @@ function InventoryContent() {
           onClose={() => { setShowModal(false); router.replace("/inventory"); }}
           onSaved={loadCars}
           prefill={prefill}
-        />
-      )}
-      {editing && (
-        <EditCarModal
-          car={editing}
-          onClose={() => setEditing(null)}
-          onSaved={(updated) => {
-            setCars((prev) => prev.map((c) => c.id === updated.id ? { ...updated, lead_name: c.lead_name } : c));
-            setEditing(null);
-          }}
         />
       )}
     </div>

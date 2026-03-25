@@ -36,10 +36,14 @@ type Record_ = {
   doc_label: string;
   file_path: string | null;
   storage_ref: string | null;
+  notes: string | null;
   created_at: string;
 };
 
 const STATUSES = ["Bought", "Being Prepped", "Listed for Sale", "Sold"];
+const CATEGORIES = ["car_sale", "purchase", "repair", "fee", "other"];
+const DOC_TYPES = ["v5c", "mot", "contract", "invoice", "other"];
+
 const statusColors: Record<string, string> = {
   Bought: "bg-blue-100 text-blue-700",
   "Being Prepped": "bg-yellow-100 text-yellow-700",
@@ -57,8 +61,29 @@ export default function CarDetailPage() {
   const router = useRouter();
   const [data, setData] = useState<{ car: Car; finance: FinanceEntry[]; records: Record_[]; profit: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [statusEdit, setStatusEdit] = useState(false);
-  const [newStatus, setNewStatus] = useState("");
+
+  // Car edit state
+  const [editingCar, setEditingCar] = useState(false);
+  const [carForm, setCarForm] = useState<Partial<Car>>({});
+  const [savingCar, setSavingCar] = useState(false);
+
+  // Finance state
+  const [showAddFinance, setShowAddFinance] = useState(false);
+  const [financeForm, setFinanceForm] = useState({
+    type: "expense", category: "repair", description: "", amount: "",
+    entry_date: new Date().toISOString().slice(0, 10), notes: "",
+  });
+  const [savingFinance, setSavingFinance] = useState(false);
+  const [editingFinance, setEditingFinance] = useState<FinanceEntry | null>(null);
+
+  // Record state
+  const [showAddRecord, setShowAddRecord] = useState(false);
+  const [recordForm, setRecordForm] = useState({
+    doc_type: "other", doc_label: "", storage_ref: "", notes: "",
+  });
+  const [recordFile, setRecordFile] = useState<File | null>(null);
+  const [savingRecord, setSavingRecord] = useState(false);
+
   const [deleting, setDeleting] = useState(false);
 
   async function load() {
@@ -66,19 +91,103 @@ export default function CarDetailPage() {
     if (!res.ok) { router.push("/inventory"); return; }
     const d = await res.json();
     setData(d);
-    setNewStatus(d.car.status);
     setLoading(false);
   }
 
   useEffect(() => { load(); }, [id]);
 
-  async function updateStatus() {
+  // ── Car edit ──
+  function startEditCar() {
+    if (!data) return;
+    const c = data.car;
+    setCarForm({
+      reg: c.reg, car_name: c.car_name, colour: c.colour,
+      mileage_bought: c.mileage_bought, purchase_price: c.purchase_price,
+      purchase_date: c.purchase_date ?? "", status: c.status,
+      location: c.location ?? "", notes: c.notes ?? "",
+    });
+    setEditingCar(true);
+  }
+
+  async function saveCar(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingCar(true);
     await fetch(`/api/inventory/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify(carForm),
     });
-    setStatusEdit(false);
+    setSavingCar(false);
+    setEditingCar(false);
+    load();
+  }
+
+  // ── Finance ──
+  async function saveFinance(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingFinance(true);
+    if (editingFinance) {
+      await fetch("/api/finance", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingFinance.id, ...financeForm, amount: parseFloat(financeForm.amount) }),
+      });
+      setEditingFinance(null);
+    } else {
+      await fetch("/api/finance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...financeForm, amount: parseFloat(financeForm.amount), inventory_id: id }),
+      });
+      setShowAddFinance(false);
+    }
+    setSavingFinance(false);
+    setFinanceForm({ type: "expense", category: "repair", description: "", amount: "", entry_date: new Date().toISOString().slice(0, 10), notes: "" });
+    load();
+  }
+
+  function startEditFinance(f: FinanceEntry) {
+    setFinanceForm({
+      type: f.type, category: f.category, description: f.description,
+      amount: String(f.amount), entry_date: f.entry_date, notes: f.notes ?? "",
+    });
+    setEditingFinance(f);
+    setShowAddFinance(false);
+  }
+
+  async function deleteFinance(fId: number) {
+    if (!confirm("Delete this finance entry?")) return;
+    await fetch("/api/finance", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: fId }) });
+    load();
+  }
+
+  // ── Records ──
+  async function saveRecord(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingRecord(true);
+    let file_path: string | null = null;
+    if (recordFile) {
+      const fd = new FormData();
+      fd.append("file", recordFile);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const d = await res.json();
+      file_path = d.path;
+    }
+    await fetch("/api/records", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...recordForm, file_path, inventory_id: parseInt(id) }),
+    });
+    setSavingRecord(false);
+    setShowAddRecord(false);
+    setRecordForm({ doc_type: "other", doc_label: "", storage_ref: "", notes: "" });
+    setRecordFile(null);
+    load();
+  }
+
+  async function deleteRecord(rId: number) {
+    if (!confirm("Delete this document?")) return;
+    await fetch("/api/records", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: rId }) });
     load();
   }
 
@@ -100,91 +209,105 @@ export default function CarDetailPage() {
 
   if (!data) return null;
   const { car, finance, records, profit } = data;
+  const ff = (key: keyof typeof financeForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setFinanceForm({ ...financeForm, [key]: e.target.value });
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6 max-w-4xl">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <Link href="/inventory" className="text-sm text-blue-600 hover:underline">← Inventory</Link>
-          <h2 className="text-2xl font-bold mt-1">
-            {car.reg} {car.car_name && `— ${car.car_name}`}
-          </h2>
+          <h2 className="text-2xl font-bold mt-1">{car.reg}{car.car_name ? ` — ${car.car_name}` : ""}</h2>
         </div>
-        <button
-          onClick={deleteCar}
-          disabled={deleting}
-          className="text-sm text-red-600 border border-red-200 px-3 py-1.5 rounded hover:bg-red-50"
-        >
-          Delete
-        </button>
+        <div className="flex gap-2">
+          {!editingCar && (
+            <button onClick={startEditCar} className="text-sm bg-gray-900 text-white px-3 py-1.5 rounded hover:bg-gray-700">
+              Edit Car
+            </button>
+          )}
+          <button onClick={deleteCar} disabled={deleting}
+            className="text-sm text-red-600 border border-red-200 px-3 py-1.5 rounded hover:bg-red-50">
+            Delete
+          </button>
+        </div>
       </div>
 
-      {/* Car details */}
-      <div className="bg-white rounded-lg border p-5 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-        <div>
-          <p className="text-xs text-gray-400">Reg</p>
-          <p className="font-mono font-semibold">{car.reg}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Car</p>
-          <p>{car.car_name ?? "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Colour</p>
-          <p>{car.colour ?? "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Mileage (bought)</p>
-          <p>{car.mileage_bought?.toLocaleString() ?? "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Purchase Price</p>
-          <p>{fmt(car.purchase_price)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Purchase Date</p>
-          <p>{car.purchase_date ? new Date(car.purchase_date).toLocaleDateString("en-GB") : "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Location</p>
-          <p>{car.location ?? "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Linked Lead</p>
-          <p>{car.lead_name ?? "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Status</p>
-          {statusEdit ? (
-            <div className="flex gap-2 mt-1">
-              <select
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value)}
-                className="border rounded px-2 py-0.5 text-sm"
-              >
-                {STATUSES.map((s) => <option key={s}>{s}</option>)}
-              </select>
-              <button onClick={updateStatus} className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">Save</button>
-              <button onClick={() => setStatusEdit(false)} className="text-xs border px-2 py-0.5 rounded">Cancel</button>
+      {/* ── Car details ── */}
+      <div className="bg-white rounded-lg border p-5">
+        {editingCar ? (
+          <form onSubmit={saveCar} className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {([
+                { label: "Reg", key: "reg", type: "text" },
+                { label: "Car Name", key: "car_name", type: "text" },
+                { label: "Colour", key: "colour", type: "text" },
+                { label: "Mileage", key: "mileage_bought", type: "number" },
+                { label: "Purchase Price (£)", key: "purchase_price", type: "number" },
+                { label: "Purchase Date", key: "purchase_date", type: "date" },
+                { label: "Location", key: "location", type: "text" },
+              ] as { label: string; key: keyof typeof carForm; type: string }[]).map(({ label, key, type }) => (
+                <div key={key}>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+                  <input type={type} value={(carForm[key] as string | number | undefined) ?? ""}
+                    onChange={(e) => setCarForm({ ...carForm, [key]: e.target.value })}
+                    className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                </div>
+              ))}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                <select value={carForm.status} onChange={(e) => setCarForm({ ...carForm, status: e.target.value })}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                  {STATUSES.map((s) => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2 md:col-span-3">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
+                <textarea value={carForm.notes ?? ""} onChange={(e) => setCarForm({ ...carForm, notes: e.target.value })}
+                  rows={2} className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              </div>
             </div>
-          ) : (
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[car.status] ?? "bg-gray-100"}`}>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setEditingCar(false)} className="px-4 py-2 text-sm border rounded hover:bg-gray-50">Cancel</button>
+              <button type="submit" disabled={savingCar} className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                {savingCar ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            {[
+              { label: "Reg", value: <span className="font-mono font-semibold">{car.reg}</span> },
+              { label: "Car", value: car.car_name ?? "—" },
+              { label: "Colour", value: car.colour ?? "—" },
+              { label: "Mileage", value: car.mileage_bought?.toLocaleString() ?? "—" },
+              { label: "Purchase Price", value: fmt(car.purchase_price) },
+              { label: "Purchase Date", value: car.purchase_date ? new Date(car.purchase_date).toLocaleDateString("en-GB") : "—" },
+              { label: "Location", value: car.location ?? "—" },
+              { label: "Linked Lead", value: car.lead_name ?? "—" },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <p className="text-xs text-gray-400">{label}</p>
+                <p className="mt-0.5">{value}</p>
+              </div>
+            ))}
+            <div>
+              <p className="text-xs text-gray-400">Status</p>
+              <span className={`mt-0.5 inline-block px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[car.status] ?? "bg-gray-100"}`}>
                 {car.status}
               </span>
-              <button onClick={() => setStatusEdit(true)} className="text-xs text-blue-600 hover:underline">Edit</button>
             </div>
-          )}
-        </div>
-        {car.notes && (
-          <div className="col-span-4">
-            <p className="text-xs text-gray-400">Notes</p>
-            <p className="text-gray-700">{car.notes}</p>
+            {car.notes && (
+              <div className="col-span-2 md:col-span-4">
+                <p className="text-xs text-gray-400">Notes</p>
+                <p className="text-gray-700 mt-0.5">{car.notes}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Profit summary */}
+      {/* ── P&L summary ── */}
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: "Total Income", value: finance.filter(f => f.type === "income").reduce((s, f) => s + Number(f.amount), 0), color: "text-green-600" },
@@ -198,16 +321,70 @@ export default function CarDetailPage() {
         ))}
       </div>
 
-      {/* Finance entries */}
+      {/* ── Finance entries ── */}
       <div className="bg-white rounded-lg border p-5">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-semibold">Finance Entries</h3>
-          <Link href={`/finance?inventory_id=${car.id}`} className="text-xs text-blue-600 hover:underline">
-            View in Finance →
-          </Link>
+          <button onClick={() => { setShowAddFinance(true); setEditingFinance(null); }}
+            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700">
+            + Add Entry
+          </button>
         </div>
-        {finance.length === 0 ? (
-          <p className="text-sm text-gray-400">No finance entries linked to this car.</p>
+
+        {/* Add / Edit finance form */}
+        {(showAddFinance || editingFinance) && (
+          <form onSubmit={saveFinance} className="mb-4 p-3 bg-gray-50 rounded-lg space-y-3 border">
+            <p className="text-xs font-bold text-gray-500 uppercase">{editingFinance ? "Edit Entry" : "New Entry"}</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Type</label>
+                <select value={financeForm.type} onChange={ff("type")}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Category</label>
+                <select value={financeForm.category} onChange={ff("category")}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Amount (£)</label>
+                <input required type="number" step="0.01" value={financeForm.amount} onChange={ff("amount")}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-500 mb-1">Description</label>
+                <input required value={financeForm.description} onChange={ff("description")}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Date</label>
+                <input type="date" value={financeForm.entry_date} onChange={ff("entry_date")}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              </div>
+              <div className="col-span-2 md:col-span-3">
+                <label className="block text-xs text-gray-500 mb-1">Notes</label>
+                <input value={financeForm.notes} onChange={ff("notes")}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { setShowAddFinance(false); setEditingFinance(null); }}
+                className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100">Cancel</button>
+              <button type="submit" disabled={savingFinance}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                {savingFinance ? "Saving…" : editingFinance ? "Save Changes" : "Add Entry"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {finance.length === 0 && !showAddFinance ? (
+          <p className="text-sm text-gray-400">No finance entries yet.</p>
         ) : (
           <table className="min-w-full text-sm">
             <thead className="text-xs text-gray-500 border-b">
@@ -216,12 +393,13 @@ export default function CarDetailPage() {
                 <th className="pb-2 text-left pr-4">Type</th>
                 <th className="pb-2 text-left pr-4">Category</th>
                 <th className="pb-2 text-left pr-4">Description</th>
-                <th className="pb-2 text-right">Amount</th>
+                <th className="pb-2 text-right pr-4">Amount</th>
+                <th className="pb-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {finance.map((f) => (
-                <tr key={f.id}>
+                <tr key={f.id} className={editingFinance?.id === f.id ? "bg-blue-50" : ""}>
                   <td className="py-2 pr-4 text-gray-400">{new Date(f.entry_date).toLocaleDateString("en-GB")}</td>
                   <td className="py-2 pr-4">
                     <span className={`px-1.5 py-0.5 rounded text-xs ${f.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
@@ -229,9 +407,15 @@ export default function CarDetailPage() {
                     </span>
                   </td>
                   <td className="py-2 pr-4 text-gray-500">{f.category}</td>
-                  <td className="py-2 pr-4">{f.description}</td>
-                  <td className={`py-2 text-right font-medium ${f.type === "income" ? "text-green-600" : "text-red-600"}`}>
+                  <td className="py-2 pr-4">{f.description}{f.notes && <span className="text-xs text-gray-400 ml-1">— {f.notes}</span>}</td>
+                  <td className={`py-2 pr-4 text-right font-medium ${f.type === "income" ? "text-green-600" : "text-red-600"}`}>
                     {f.type === "expense" ? "−" : "+"}{fmt(Number(f.amount))}
+                  </td>
+                  <td className="py-2 whitespace-nowrap">
+                    <div className="flex gap-2">
+                      <button onClick={() => startEditFinance(f)} className="text-xs text-blue-600 hover:underline">Edit</button>
+                      <button onClick={() => deleteFinance(f.id)} className="text-xs text-red-500 hover:underline">Delete</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -240,36 +424,80 @@ export default function CarDetailPage() {
         )}
       </div>
 
-      {/* Official Records */}
+      {/* ── Official Records ── */}
       <div className="bg-white rounded-lg border p-5">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold">Official Records</h3>
-          <Link href={`/records?inventory_id=${car.id}`} className="text-xs text-blue-600 hover:underline">
-            View in Records →
-          </Link>
+          <h3 className="font-semibold">Documents</h3>
+          <button onClick={() => setShowAddRecord(!showAddRecord)}
+            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700">
+            + Add Document
+          </button>
         </div>
-        {records.length === 0 ? (
-          <p className="text-sm text-gray-400">No documents linked to this car.</p>
+
+        {/* Add record form */}
+        {showAddRecord && (
+          <form onSubmit={saveRecord} className="mb-4 p-3 bg-gray-50 rounded-lg space-y-3 border">
+            <p className="text-xs font-bold text-gray-500 uppercase">New Document</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Type</label>
+                <select value={recordForm.doc_type} onChange={(e) => setRecordForm({ ...recordForm, doc_type: e.target.value })}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                  {DOC_TYPES.map((t) => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Label *</label>
+                <input required value={recordForm.doc_label} onChange={(e) => setRecordForm({ ...recordForm, doc_label: e.target.value })}
+                  placeholder="e.g. V5C — AB12 CDE"
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-500 mb-1">Upload File</label>
+                <input type="file" onChange={(e) => setRecordFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-sm border rounded px-2 py-1.5" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-500 mb-1">Or External URL</label>
+                <input type="url" value={recordForm.storage_ref} onChange={(e) => setRecordForm({ ...recordForm, storage_ref: e.target.value })}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-500 mb-1">Notes</label>
+                <input value={recordForm.notes} onChange={(e) => setRecordForm({ ...recordForm, notes: e.target.value })}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowAddRecord(false)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100">Cancel</button>
+              <button type="submit" disabled={savingRecord} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                {savingRecord ? "Uploading…" : "Save Document"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {records.length === 0 && !showAddRecord ? (
+          <p className="text-sm text-gray-400">No documents yet.</p>
         ) : (
           <div className="space-y-2">
             {records.map((r) => (
               <div key={r.id} className="flex items-center justify-between text-sm border rounded px-3 py-2">
                 <div>
                   <span className="font-medium">{r.doc_label}</span>
-                  <span className="ml-2 text-xs text-gray-400">{r.doc_type}</span>
+                  <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded uppercase">{r.doc_type}</span>
+                  {r.notes && <p className="text-xs text-gray-400 mt-0.5">{r.notes}</p>}
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 shrink-0">
                   {r.file_path && (
-                    <a href={r.file_path} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">
-                      Download
-                    </a>
+                    <a href={r.file_path} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">Download</a>
                   )}
                   {r.storage_ref && (
-                    <a href={r.storage_ref} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">
-                      External Link
-                    </a>
+                    <a href={r.storage_ref} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">External Link</a>
                   )}
                   <span className="text-gray-400 text-xs">{new Date(r.created_at).toLocaleDateString("en-GB")}</span>
+                  <button onClick={() => deleteRecord(r.id)} className="text-xs text-red-500 hover:underline">Delete</button>
                 </div>
               </div>
             ))}
