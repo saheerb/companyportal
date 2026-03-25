@@ -73,6 +73,34 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ error: "Invalid entity" }, { status: 400 });
 }
 
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const { entity, id } = body;
+
+  if (entity === "bank") {
+    const { bank_name, balance, balance_date } = body;
+    const { rows } = await pool.query(
+      `UPDATE bank_balances SET bank_name=$1, balance=$2, balance_date=$3 WHERE id=$4 RETURNING *`,
+      [bank_name, balance, balance_date, id]
+    );
+    return NextResponse.json(rows[0]);
+  }
+
+  if (entity === "investment") {
+    const { name, type, amount, investment_date, notes } = body;
+    const { rows } = await pool.query(
+      `UPDATE investments SET name=$1, type=$2, amount=$3, investment_date=$4, notes=$5 WHERE id=$6 RETURNING *`,
+      [name, type, amount, investment_date, notes || null, id]
+    );
+    return NextResponse.json(rows[0]);
+  }
+
+  return NextResponse.json({ error: "Invalid entity" }, { status: 400 });
+}
+
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
