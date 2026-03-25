@@ -43,7 +43,7 @@ type Record_ = {
 };
 
 const STATUSES = ["Bought", "Being Prepped", "Listed for Sale", "Sold"];
-const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "preparation", "delivery", "commission", "other"];
+const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "parts", "preparation", "delivery", "commission", "other"];
 const INCOME_CATEGORIES = ["car_sale", "other"];
 const DOC_TYPES = ["v5c", "mot", "contract", "invoice", "other"];
 
@@ -448,43 +448,31 @@ export default function CarDetailPage() {
         {finance.length === 0 && !showAddFinance ? (
           <p className="text-sm text-gray-400">No finance entries yet.</p>
         ) : (
-          <table className="min-w-full text-sm">
-            <thead className="text-xs text-gray-500 border-b">
-              <tr>
-                <th className="pb-2 text-left pr-4">Date</th>
-                <th className="pb-2 text-left pr-4">Type</th>
-                <th className="pb-2 text-left pr-4">Category</th>
-                <th className="pb-2 text-left pr-4">Description</th>
-                <th className="pb-2 text-right pr-4">Amount</th>
-                <th className="pb-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {finance.map((f) => (
-                <tr key={f.id} className={editingFinance?.id === f.id ? "bg-blue-50" : ""}>
-                  <td className="py-2 pr-4 text-gray-400">{new Date(f.entry_date).toLocaleDateString("en-GB")}</td>
-                  <td className="py-2 pr-4">
-                    <span className={`px-1.5 py-0.5 rounded text-xs ${f.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+          <div className="divide-y divide-gray-100">
+            {finance.map((f) => (
+              <div key={f.id} className={`py-3 flex items-start justify-between gap-2 ${editingFinance?.id === f.id ? "bg-blue-50 -mx-5 px-5 rounded" : ""}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                    <span className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${f.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
                       {f.type}
                     </span>
-                  </td>
-                  <td className="py-2 pr-4 text-gray-500">{f.category}</td>
-                  <td className="py-2 pr-4">
-                    {f.description}
-                    {f.notes && <span className="text-xs text-gray-400 ml-1">— {f.notes}</span>}
-                    {f.vat_claimable && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">VAT</span>}
-                    {f.off_the_records && <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">Off Records</span>}
-                  </td>
-                  <td className={`py-2 pr-4 text-right font-medium ${f.type === "income" ? "text-green-600" : "text-red-600"}`}>
+                    <span className="text-xs text-gray-400 shrink-0">{f.category.replace(/_/g, " ")}</span>
+                    {f.vat_claimable && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">VAT</span>}
+                    {f.off_the_records && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium shrink-0">Off Records</span>}
+                  </div>
+                  <p className="text-sm text-gray-800 truncate">{f.description || <span className="text-gray-400 italic">No description</span>}</p>
+                  {f.notes && <p className="text-xs text-gray-400 mt-0.5 truncate">{f.notes}</p>}
+                  <p className="text-xs text-gray-400 mt-0.5">{new Date(f.entry_date).toLocaleDateString("en-GB")}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`text-sm font-semibold ${f.type === "income" ? "text-green-600" : "text-red-600"}`}>
                     {f.type === "expense" ? "−" : "+"}{fmt(Number(f.amount))}
-                  </td>
-                  <td className="py-2 whitespace-nowrap">
-                    <button onClick={() => startEditFinance(f)} className="text-xs text-blue-600 hover:underline">Edit</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </span>
+                  <button onClick={() => startEditFinance(f)} className="text-xs text-blue-600 hover:underline">Edit</button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

@@ -34,7 +34,7 @@ type Overview = {
   off_the_records_balance: number;
 };
 
-const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "preparation", "delivery", "commission", "other"];
+const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "parts", "preparation", "delivery", "commission", "other"];
 const INCOME_CATEGORIES  = ["car_sale", "other"];
 const INVESTMENT_TYPES = ["SEIS", "Personal", "Other"];
 
