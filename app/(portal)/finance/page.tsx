@@ -514,7 +514,7 @@ function FinanceContent() {
                   <td className="px-4 py-3">
                     <span>{e.description}</span>
                     {e.vat_claimable && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">VAT</span>}
-                    {e.off_the_records && <span className="ml-2 text-xs">🔒</span>}
+                    {e.off_the_records && <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">Off Records</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs font-mono">{e.car_reg}</td>
                   <td className={`px-4 py-3 text-right font-medium ${e.type === "income" ? "text-green-600" : "text-red-600"}`}>

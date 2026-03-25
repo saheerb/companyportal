@@ -313,18 +313,42 @@ export default function CarDetailPage() {
       </div>
 
       {/* ── P&L summary ── */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "Total Income", value: finance.filter(f => f.type === "income").reduce((s, f) => s + Number(f.amount), 0), color: "text-green-600" },
-          { label: "Total Expenses", value: finance.filter(f => f.type === "expense").reduce((s, f) => s + Number(f.amount), 0), color: "text-red-600" },
-          { label: "Profit", value: profit, color: profit >= 0 ? "text-green-700" : "text-red-600" },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-lg border p-4 text-center">
-            <p className="text-xs text-gray-400">{s.label}</p>
-            <p className={`text-2xl font-bold ${s.color}`}>{fmt(s.value)}</p>
+      {(() => {
+        const vatTotal = finance.filter(f => f.vat_claimable).reduce((s, f) => s + Number(f.amount), 0);
+        const offRecordsTotal = finance.filter(f => f.off_the_records).reduce((s, f) => s + Number(f.amount), 0);
+        return (
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { label: "Total Income", value: finance.filter(f => f.type === "income").reduce((s, f) => s + Number(f.amount), 0), color: "text-green-600" },
+                { label: "Total Expenses", value: finance.filter(f => f.type === "expense").reduce((s, f) => s + Number(f.amount), 0), color: "text-red-600" },
+                { label: "Profit", value: profit, color: profit >= 0 ? "text-green-700" : "text-red-600" },
+              ].map((s) => (
+                <div key={s.label} className="bg-white rounded-lg border p-4 text-center">
+                  <p className="text-xs text-gray-400">{s.label}</p>
+                  <p className={`text-2xl font-bold ${s.color}`}>{fmt(s.value)}</p>
+                </div>
+              ))}
+            </div>
+            {(vatTotal > 0 || offRecordsTotal > 0) && (
+              <div className="grid grid-cols-2 gap-4">
+                {vatTotal > 0 && (
+                  <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 text-center">
+                    <p className="text-xs text-blue-500 mb-1">VAT Claimable</p>
+                    <p className="text-xl font-bold text-blue-700">{fmt(vatTotal)}</p>
+                  </div>
+                )}
+                {offRecordsTotal > 0 && (
+                  <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4 text-center">
+                    <p className="text-xs text-gray-400 mb-1">Off Records Balance</p>
+                    <p className="text-xl font-bold text-gray-500">{fmt(offRecordsTotal)}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* ── Finance entries ── */}
       <div className="bg-white rounded-lg border p-5">
@@ -368,7 +392,7 @@ export default function CarDetailPage() {
               </div>
               <div className="col-span-2">
                 <label className="block text-xs text-gray-500 mb-1">Description</label>
-                <input required value={financeForm.description} onChange={ff("description")}
+                <input value={financeForm.description} onChange={ff("description")}
                   className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
               </div>
               <div>
@@ -402,13 +426,21 @@ export default function CarDetailPage() {
                 </div>
               )}
             </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => { setShowAddFinance(false); setEditingFinance(null); }}
-                className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100">Cancel</button>
-              <button type="submit" disabled={savingFinance}
-                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
-                {savingFinance ? "Saving…" : editingFinance ? "Save Changes" : "Add Entry"}
-              </button>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <button type="button" onClick={() => { setShowAddFinance(false); setEditingFinance(null); }}
+                  className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100">Cancel</button>
+                <button type="submit" disabled={savingFinance}
+                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                  {savingFinance ? "Saving…" : editingFinance ? "Save Changes" : "Add Entry"}
+                </button>
+              </div>
+              {editingFinance && (
+                <button type="button" onClick={() => deleteFinance(editingFinance.id)}
+                  className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50">
+                  Delete Entry
+                </button>
+              )}
             </div>
           </form>
         )}
@@ -441,16 +473,13 @@ export default function CarDetailPage() {
                     {f.description}
                     {f.notes && <span className="text-xs text-gray-400 ml-1">— {f.notes}</span>}
                     {f.vat_claimable && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">VAT</span>}
-                    {f.off_the_records && <span className="ml-2 text-xs">🔒</span>}
+                    {f.off_the_records && <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">Off Records</span>}
                   </td>
                   <td className={`py-2 pr-4 text-right font-medium ${f.type === "income" ? "text-green-600" : "text-red-600"}`}>
                     {f.type === "expense" ? "−" : "+"}{fmt(Number(f.amount))}
                   </td>
                   <td className="py-2 whitespace-nowrap">
-                    <div className="flex gap-2">
-                      <button onClick={() => startEditFinance(f)} className="text-xs text-blue-600 hover:underline">Edit</button>
-                      <button onClick={() => deleteFinance(f.id)} className="text-xs text-red-500 hover:underline">Delete</button>
-                    </div>
+                    <button onClick={() => startEditFinance(f)} className="text-xs text-blue-600 hover:underline">Edit</button>
                   </td>
                 </tr>
               ))}
