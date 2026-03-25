@@ -41,6 +41,28 @@ export async function initDb() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS bank_balances (
+      id            SERIAL      PRIMARY KEY,
+      bank_name     TEXT        NOT NULL,
+      balance       NUMERIC     NOT NULL,
+      balance_date  DATE        NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS investments (
+      id               SERIAL      PRIMARY KEY,
+      name             TEXT        NOT NULL,
+      type             TEXT        NOT NULL,
+      amount           NUMERIC     NOT NULL,
+      investment_date  DATE        NOT NULL,
+      notes            TEXT,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS official_records (
       id              SERIAL        PRIMARY KEY,
       created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
