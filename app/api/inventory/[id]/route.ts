@@ -36,14 +36,12 @@ export async function GET(
   const totalExpenses = finance.rows
     .filter((r) => r.type === "expense")
     .reduce((s: number, r) => s + parseFloat(r.amount), 0);
-  const purchasePrice = parseFloat(car.rows[0].purchase_price ?? 0);
-
   return NextResponse.json({
     car: car.rows[0],
     finance: finance.rows,
     records: records.rows,
-    profit: totalIncome - totalExpenses - purchasePrice,
-    total_costs: totalExpenses + purchasePrice,
+    profit: totalIncome - totalExpenses,
+    total_costs: totalExpenses,
     has_sale: totalIncome > 0,
   });
 }

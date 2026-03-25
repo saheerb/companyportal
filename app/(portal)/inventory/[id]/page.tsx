@@ -43,7 +43,7 @@ type Record_ = {
 };
 
 const STATUSES = ["Bought", "Being Prepped", "Listed for Sale", "Sold"];
-const EXPENSE_CATEGORIES = ["repair_service", "parts", "preparation", "delivery", "commission", "other"];
+const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "parts", "preparation", "delivery", "commission", "other"];
 const INCOME_CATEGORIES = ["car_sale", "other"];
 const DOC_TYPES = ["v5c", "mot", "contract", "invoice", "other"];
 
@@ -248,7 +248,6 @@ export default function CarDetailPage() {
                 { label: "Car Name", key: "car_name", type: "text" },
                 { label: "Colour", key: "colour", type: "text" },
                 { label: "Mileage", key: "mileage_bought", type: "number" },
-                { label: "Purchase Price (£)", key: "purchase_price", type: "number" },
                 { label: "Purchase Date", key: "purchase_date", type: "date" },
                 { label: "Location", key: "location", type: "text" },
               ] as { label: string; key: keyof typeof carForm; type: string }[]).map(({ label, key, type }) => (
@@ -319,27 +318,24 @@ export default function CarDetailPage() {
         const totalIncome = finance.filter(f => f.type === "income").reduce((s, f) => s + Number(f.amount), 0);
         return (
           <div className="space-y-3">
-            {has_sale ? (
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white rounded-lg border p-4 text-center">
-                  <p className="text-xs text-gray-400">Sale Income</p>
-                  <p className="text-2xl font-bold text-green-600">{fmt(totalIncome)}</p>
-                </div>
-                <div className="bg-white rounded-lg border p-4 text-center">
-                  <p className="text-xs text-gray-400">Total Costs</p>
-                  <p className="text-2xl font-bold text-red-600">{fmt(total_costs)}</p>
-                  <p className="text-xs text-gray-400 mt-1">incl. purchase price</p>
-                </div>
-                <div className="bg-white rounded-lg border p-4 text-center">
-                  <p className="text-xs text-gray-400">Profit</p>
-                  <p className={`text-2xl font-bold ${profit >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(profit)}</p>
-                </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg border p-4 text-center">
+                <p className="text-xs text-gray-400">Sale Income</p>
+                {has_sale
+                  ? <p className="text-2xl font-bold text-green-600">{fmt(totalIncome)}</p>
+                  : <p className="text-2xl font-bold text-gray-300">—</p>}
               </div>
-            ) : (
-              <div className="bg-white rounded-lg border p-4 text-center text-sm text-gray-400 italic">
-                Profit will show once a sale is recorded
+              <div className="bg-white rounded-lg border p-4 text-center">
+                <p className="text-xs text-gray-400">Total Costs</p>
+                <p className="text-2xl font-bold text-red-600">{fmt(total_costs)}</p>
               </div>
-            )}
+              <div className="bg-white rounded-lg border p-4 text-center">
+                <p className="text-xs text-gray-400">Profit</p>
+                {has_sale
+                  ? <p className={`text-2xl font-bold ${profit >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(profit)}</p>
+                  : <p className="text-2xl font-bold text-gray-300">Not yet</p>}
+              </div>
+            </div>
             {(vatTotal > 0 || offRecordsTotal > 0) && (
               <div className="grid grid-cols-2 gap-4">
                 {vatTotal > 0 && (
@@ -477,7 +473,7 @@ export default function CarDetailPage() {
                   <p className="text-xs text-gray-400 mt-0.5">{new Date(f.entry_date).toLocaleDateString("en-GB")}</p>
                 </div>
                 <span className={`text-sm font-semibold shrink-0 ${f.type === "income" ? "text-green-600" : "text-red-600"}`}>
-                  {f.type === "expense" ? "−" : "+"}{fmt(Number(f.amount))}
+                  {fmt(Number(f.amount))}
                 </span>
               </div>
             ))}
