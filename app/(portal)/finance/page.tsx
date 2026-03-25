@@ -1,21 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-
-type Entry = {
-  id: number;
-  type: string;
-  category: string;
-  description: string;
-  amount: number;
-  entry_date: string;
-  car_reg: string | null;
-  car_name: string | null;
-  notes: string | null;
-  vat_claimable: boolean;
-  off_the_records: boolean;
-};
+import { useRouter } from "next/navigation";
 
 type Car = { id: number; reg: string; car_name: string };
 
@@ -293,49 +279,25 @@ function AddEntryModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 // ─── Finance Content ───────────────────────────────────────────────────────────
 function FinanceContent() {
   const router = useRouter();
-  const [entries, setEntries] = useState<Entry[]>([]);
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
   const [showInvestmentModal, setShowInvestmentModal] = useState(false);
   const [showBankHistory, setShowBankHistory] = useState(false);
   const [showInvestments, setShowInvestments] = useState(false);
-  const searchParams = useSearchParams();
-  const inventoryId = searchParams.get("inventory_id");
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (inventoryId) params.set("inventory_id", inventoryId);
-    const [entriesRes, overviewRes] = await Promise.all([
-      fetch(`/api/finance?${params}`),
-      fetch("/api/finance/overview"),
-    ]);
-    setEntries(await entriesRes.json());
-    setOverview(await overviewRes.json());
-    setLoading(false);
-  }, [inventoryId]);
+    const res = await fetch("/api/finance/overview");
+    setOverview(await res.json());
+  }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  async function deleteEntry(id: number) {
-    if (!confirm("Delete this entry?")) return;
-    await fetch("/api/finance", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    load();
-  }
 
   async function deleteOverviewItem(entity: string, id: number) {
     if (!confirm("Delete this record?")) return;
     await fetch("/api/finance/overview", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, id }) });
     load();
   }
-
-  const now = new Date();
-  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const monthEntries = entries.filter((e) => e.entry_date.slice(0, 7) === thisMonth);
-  const monthIncome = monthEntries.filter((e) => e.type === "income").reduce((s, e) => s + Number(e.amount), 0);
-  const monthExpenses = monthEntries.filter((e) => e.type === "expense").reduce((s, e) => s + Number(e.amount), 0);
 
   const netPL = (overview?.total_income ?? 0) - (overview?.total_expenses ?? 0);
 
@@ -344,7 +306,6 @@ function FinanceContent() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Finance</h2>
-          {inventoryId && <p className="text-sm text-blue-600">Filtered by car</p>}
         </div>
         <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">
           + Add Entry
@@ -461,74 +422,7 @@ function FinanceContent() {
         </div>
       </div>
 
-      {/* Monthly summary */}
-      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">This Month</h3>
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border p-4 text-center">
-          <p className="text-xs text-gray-400">Income</p>
-          <p className="text-2xl font-bold text-green-600">{fmt(monthIncome)}</p>
-        </div>
-        <div className="bg-white rounded-lg border p-4 text-center">
-          <p className="text-xs text-gray-400">Expenses</p>
-          <p className="text-2xl font-bold text-red-600">{fmt(monthExpenses)}</p>
-        </div>
-        <div className="bg-white rounded-lg border p-4 text-center">
-          <p className="text-xs text-gray-400">Profit</p>
-          <p className={`text-2xl font-bold ${monthIncome - monthExpenses >= 0 ? "text-green-700" : "text-red-600"}`}>
-            {fmt(monthIncome - monthExpenses)}
-          </p>
-        </div>
-      </div>
 
-      {/* Entries table */}
-      {loading ? (
-        <div className="animate-pulse space-y-2">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded" />)}
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 border-b text-left text-gray-500 text-xs">
-              <tr>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Description</th>
-                <th className="px-4 py-3">Car</th>
-                <th className="px-4 py-3 text-right">Amount</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {entries.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No entries found.</td></tr>
-              ) : entries.map((e) => (
-                <tr key={e.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-400">{new Date(e.entry_date).toLocaleDateString("en-GB")}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${e.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                      {e.type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{e.category}</td>
-                  <td className="px-4 py-3">
-                    <span>{e.description}</span>
-                    {e.vat_claimable && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">VAT</span>}
-                    {e.off_the_records && <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">Off Records</span>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs font-mono">{e.car_reg}</td>
-                  <td className={`px-4 py-3 text-right font-medium ${e.type === "income" ? "text-green-600" : "text-red-600"}`}>
-                    {e.type === "expense" ? "−" : "+"}{fmt(Number(e.amount))}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => deleteEntry(e.id)} className="text-xs text-red-500 hover:underline">Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {showModal && <AddEntryModal onClose={() => setShowModal(false)} onSaved={load} />}
       {showBankModal && <BankModal onClose={() => setShowBankModal(false)} onSaved={load} />}

@@ -9,20 +9,6 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(n);
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    New: "bg-blue-100 text-blue-700",
-    "Offer Sent": "bg-yellow-100 text-yellow-700",
-    Accepted: "bg-green-100 text-green-700",
-    Rejected: "bg-red-100 text-red-700",
-    Completed: "bg-gray-100 text-gray-700",
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] ?? "bg-gray-100 text-gray-600"}`}>
-      {status}
-    </span>
-  );
-}
 
 export default function DashboardPage() {
   const [data, setData] = useState<Record<string, unknown> | null>(null);
@@ -51,7 +37,6 @@ export default function DashboardPage() {
 
   const pipeline = data.inventoryPipeline as { status: string; count: string }[];
   const pipelineMap = Object.fromEntries(pipeline.map((p) => [p.status, parseInt(p.count)]));
-  const recentLeads = data.recentLeads as { id: number; name: string; reg: string; car_name: string; status: string; created_at: string }[];
   const monthlyPL = data.monthlyPL as { month: string; income: string; expenses: string }[];
 
   return (
@@ -127,38 +112,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Leads */}
-      <div className="bg-white rounded-lg border border-gray-200 p-5">
-        <h3 className="font-semibold text-gray-800 mb-4">Recent Leads</h3>
-        {recentLeads.length === 0 ? (
-          <p className="text-sm text-gray-400">No leads yet.</p>
-        ) : (
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 text-xs border-b">
-                <th className="pb-2 pr-4">Name</th>
-                <th className="pb-2 pr-4">Reg</th>
-                <th className="pb-2 pr-4">Car</th>
-                <th className="pb-2 pr-4">Status</th>
-                <th className="pb-2">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {recentLeads.map((lead) => (
-                <tr key={lead.id}>
-                  <td className="py-2 pr-4 font-medium">{lead.name}</td>
-                  <td className="py-2 pr-4 font-mono text-xs">{lead.reg}</td>
-                  <td className="py-2 pr-4 text-gray-500">{lead.car_name}</td>
-                  <td className="py-2 pr-4"><StatusBadge status={lead.status} /></td>
-                  <td className="py-2 text-gray-400 text-xs">
-                    {new Date(lead.created_at).toLocaleDateString("en-GB")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
     </div>
   );
 }

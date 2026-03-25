@@ -450,7 +450,9 @@ export default function CarDetailPage() {
         ) : (
           <div className="divide-y divide-gray-100">
             {finance.map((f) => (
-              <div key={f.id} className={`py-3 flex items-start justify-between gap-2 ${editingFinance?.id === f.id ? "bg-blue-50 -mx-5 px-5 rounded" : ""}`}>
+              <div key={f.id}
+                onClick={() => startEditFinance(f)}
+                className={`py-3 flex items-start justify-between gap-2 cursor-pointer hover:bg-gray-50 -mx-5 px-5 transition-colors ${editingFinance?.id === f.id ? "bg-blue-50" : ""}`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
                     <span className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${f.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
@@ -464,12 +466,9 @@ export default function CarDetailPage() {
                   {f.notes && <p className="text-xs text-gray-400 mt-0.5 truncate">{f.notes}</p>}
                   <p className="text-xs text-gray-400 mt-0.5">{new Date(f.entry_date).toLocaleDateString("en-GB")}</p>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-sm font-semibold ${f.type === "income" ? "text-green-600" : "text-red-600"}`}>
-                    {f.type === "expense" ? "−" : "+"}{fmt(Number(f.amount))}
-                  </span>
-                  <button onClick={() => startEditFinance(f)} className="text-xs text-blue-600 hover:underline">Edit</button>
-                </div>
+                <span className={`text-sm font-semibold shrink-0 ${f.type === "income" ? "text-green-600" : "text-red-600"}`}>
+                  {f.type === "expense" ? "−" : "+"}{fmt(Number(f.amount))}
+                </span>
               </div>
             ))}
           </div>
