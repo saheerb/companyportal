@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [bankLatest, bankHistory, investments, stock, finance] = await Promise.all([
+  const [bankLatest, bankHistory, investments, stock, finance, bankTotal, receivables, vatClaimable] = await Promise.all([
     pool.query(`SELECT * FROM bank_balances ORDER BY balance_date DESC LIMIT 1`),
     pool.query(`SELECT * FROM bank_balances ORDER BY balance_date DESC`),
     pool.query(`SELECT * FROM investments ORDER BY investment_date DESC`),
@@ -24,20 +24,44 @@ export async function GET(req: NextRequest) {
         COALESCE(SUM(CASE WHEN type = 'income' AND off_the_records = TRUE THEN amount ELSE 0 END), 0) AS off_the_records_balance
       FROM finance_entries
     `),
+    pool.query(`
+      SELECT COALESCE(SUM(balance), 0) AS bank_total
+      FROM (
+        SELECT DISTINCT ON (bank_name) balance
+        FROM bank_balances
+        ORDER BY bank_name, balance_date DESC
+      ) latest
+    `),
+    pool.query(`
+      SELECT COALESCE(SUM(amount), 0) AS receivables_outstanding
+      FROM receivables WHERE received = FALSE
+    `),
+    pool.query(`
+      SELECT COALESCE(SUM(amount), 0) AS vat_claimable
+      FROM finance_entries WHERE vat_claimable = TRUE AND type = 'expense'
+    `),
   ]);
 
   const capitalInvested = investments.rows.reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
+  const stockValue = Number(stock.rows[0].stock_value);
+  const bankTotalValue = Number(bankTotal.rows[0].bank_total);
+  const receivablesOutstanding = Number(receivables.rows[0].receivables_outstanding);
+  const vatClaimableValue = Number(vatClaimable.rows[0].vat_claimable);
 
   return NextResponse.json({
     bank_balance: bankLatest.rows[0] ?? null,
     bank_history: bankHistory.rows,
     investments: investments.rows,
     capital_invested: capitalInvested,
-    stock_value: Number(stock.rows[0].stock_value),
+    stock_value: stockValue,
     cars_in_stock: Number(stock.rows[0].cars_in_stock),
     total_income: Number(finance.rows[0].total_income),
     total_expenses: Number(finance.rows[0].total_expenses),
     off_the_records_balance: Number(finance.rows[0].off_the_records_balance),
+    bank_total: bankTotalValue,
+    receivables_outstanding: receivablesOutstanding,
+    vat_claimable: vatClaimableValue,
+    total_assets: stockValue + bankTotalValue + receivablesOutstanding + vatClaimableValue,
   });
 }
 

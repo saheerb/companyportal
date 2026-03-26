@@ -33,6 +33,10 @@ type Overview = {
   total_income: number;
   total_expenses: number;
   off_the_records_balance: number;
+  bank_total: number;
+  receivables_outstanding: number;
+  vat_claimable: number;
+  total_assets: number;
 };
 
 const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "parts", "preparation", "delivery", "commission", "other"];
@@ -359,12 +363,36 @@ function FinanceContent() {
       <div className="space-y-4">
         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Company Overview</h3>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-lg border p-4">
-            <p className="text-xs text-gray-400 mb-1">Stock Value</p>
-            <p className="text-xl font-bold text-gray-900">{fmt(overview?.stock_value ?? 0)}</p>
-            <p className="text-xs text-gray-400 mt-1">{overview?.cars_in_stock ?? 0} cars unsold</p>
+        {/* Total Assets */}
+        <div className="bg-gray-900 rounded-lg p-5 text-white">
+          <p className="text-xs text-gray-400 mb-1">Total Assets</p>
+          <p className="text-3xl font-bold mb-4">{fmt(overview?.total_assets ?? 0)}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-gray-800 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-0.5">Stock Value</p>
+              <p className="text-lg font-bold">{fmt(overview?.stock_value ?? 0)}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{overview?.cars_in_stock ?? 0} cars</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-0.5">Bank & Cash</p>
+              <p className="text-lg font-bold">{fmt(overview?.bank_total ?? 0)}</p>
+              <p className="text-xs text-gray-500 mt-0.5">across all accounts</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-0.5">Receivables</p>
+              <p className="text-lg font-bold">{fmt(overview?.receivables_outstanding ?? 0)}</p>
+              <p className="text-xs text-gray-500 mt-0.5">owed to you</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-0.5">VAT Claimable</p>
+              <p className="text-lg font-bold">{fmt(overview?.vat_claimable ?? 0)}</p>
+              <p className="text-xs text-gray-500 mt-0.5">reclaimable from HMRC</p>
+            </div>
           </div>
+        </div>
+
+        {/* P&L */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-white rounded-lg border p-4">
             <p className="text-xs text-gray-400 mb-1">Total Revenue</p>
             <p className="text-xl font-bold text-green-600">{fmt(overview?.total_income ?? 0)}</p>
@@ -393,15 +421,9 @@ function FinanceContent() {
         <div className="bg-white rounded-lg border p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs text-gray-400 mb-1">Bank Balance</p>
-              {overview?.bank_balance ? (
-                <>
-                  <p className="text-2xl font-bold text-gray-900">{fmt(Number(overview.bank_balance.balance))}</p>
-                  <p className="text-xs text-gray-400 mt-1">{overview.bank_balance.bank_name} · as of {fmtDate(overview.bank_balance.balance_date)}</p>
-                </>
-              ) : (
-                <p className="text-sm text-gray-400 italic">No balance recorded yet</p>
-              )}
+              <p className="text-xs text-gray-400 mb-1">Bank & Cash</p>
+              <p className="text-2xl font-bold text-gray-900">{fmt(overview?.bank_total ?? 0)}</p>
+              <p className="text-xs text-gray-400 mt-1">latest balance per account · add "Cash" for cash in hand</p>
             </div>
             <div className="flex gap-2 shrink-0">
               <button onClick={() => { setShowBankHistory(!showBankHistory); setEditingBank(null); }}
