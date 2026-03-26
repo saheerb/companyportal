@@ -21,6 +21,7 @@ type Car = { id: number; reg: string; car_name: string };
 
 type BankBalance = { id: number; bank_name: string; balance: number; balance_date: string };
 type Investment = { id: number; name: string; type: string; amount: number; investment_date: string; notes: string | null };
+type Receivable = { id: number; name: string; description: string | null; amount: number; due_date: string | null; received: boolean; received_date: string | null; notes: string | null; created_at: string };
 
 type Overview = {
   bank_balance: BankBalance | null;
@@ -225,16 +226,24 @@ function FinanceContent() {
   const [editingInv, setEditingInv] = useState<Investment | null>(null);
   const [invForm, setInvForm] = useState({ name: "", type: "Personal", amount: "", investment_date: "", notes: "" });
 
+  // Receivables
+  const [receivables, setReceivables] = useState<Receivable[]>([]);
+  const [showAddReceivable, setShowAddReceivable] = useState(false);
+  const [editingReceivable, setEditingReceivable] = useState<Receivable | null>(null);
+  const [receivableForm, setReceivableForm] = useState({ name: "", description: "", amount: "", due_date: "", notes: "" });
+
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    const [entriesRes, overviewRes] = await Promise.all([
+    const [entriesRes, overviewRes, receivablesRes] = await Promise.all([
       fetch("/api/finance"),
       fetch("/api/finance/overview"),
+      fetch("/api/finance/receivables"),
     ]);
     const all = await entriesRes.json();
     setEntries(all.filter((e: Entry) => e.inventory_id === null));
     setOverview(await overviewRes.json());
+    setReceivables(await receivablesRes.json());
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -299,7 +308,43 @@ function FinanceContent() {
     load();
   }
 
+  // ── Receivable handlers ──
+  function startEditReceivable(r: Receivable) {
+    setReceivableForm({ name: r.name, description: r.description ?? "", amount: String(r.amount), due_date: r.due_date?.slice(0, 10) ?? "", notes: r.notes ?? "" });
+    setEditingReceivable(r);
+    setShowAddReceivable(false);
+  }
+
+  async function saveReceivable(ev: React.FormEvent) {
+    ev.preventDefault();
+    setSaving(true);
+    const body = { ...receivableForm, amount: parseFloat(receivableForm.amount), due_date: receivableForm.due_date || null };
+    if (editingReceivable) {
+      await fetch("/api/finance/receivables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingReceivable.id, ...body }) });
+      setEditingReceivable(null);
+    } else {
+      await fetch("/api/finance/receivables", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      setShowAddReceivable(false);
+    }
+    setReceivableForm({ name: "", description: "", amount: "", due_date: "", notes: "" });
+    setSaving(false);
+    load();
+  }
+
+  async function markReceived(r: Receivable) {
+    await fetch("/api/finance/receivables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.id, received: true, received_date: new Date().toISOString().slice(0, 10) }) });
+    load();
+  }
+
+  async function deleteReceivable(id: number) {
+    if (!confirm("Delete this receivable?")) return;
+    await fetch("/api/finance/receivables", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setEditingReceivable(null);
+    load();
+  }
+
   const netPL = (overview?.total_income ?? 0) - (overview?.total_expenses ?? 0);
+  const outstandingTotal = receivables.filter(r => !r.received).reduce((s, r) => s + Number(r.amount), 0);
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -542,6 +587,81 @@ function FinanceContent() {
                   <p className="text-xs text-gray-400 mt-0.5">{fmtDate(e.entry_date)}</p>
                 </div>
                 <span className={`text-sm font-semibold shrink-0 ${e.type === "income" ? "text-green-600" : "text-red-600"}`}>{fmt(Number(e.amount))}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Receivables ── */}
+      <div className="bg-white rounded-lg border">
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <div>
+            <h3 className="font-semibold">Receivables</h3>
+            {outstandingTotal > 0 && <p className="text-xs text-orange-600 mt-0.5">Outstanding: {fmt(outstandingTotal)}</p>}
+          </div>
+          <button onClick={() => { setShowAddReceivable(!showAddReceivable); setEditingReceivable(null); setReceivableForm({ name: "", description: "", amount: "", due_date: "", notes: "" }); }}
+            className="text-xs bg-blue-600 text-white rounded px-3 py-1.5 hover:bg-blue-700">
+            + Add
+          </button>
+        </div>
+
+        {/* Add / Edit form */}
+        {(showAddReceivable || editingReceivable) && (
+          <form onSubmit={saveReceivable} className="m-4 p-3 bg-gray-50 rounded-lg border space-y-3">
+            <p className="text-xs font-bold text-gray-500 uppercase">{editingReceivable ? "Edit" : "New Receivable"}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2"><label className="block text-xs text-gray-500 mb-1">Who owes you *</label>
+                <input required value={receivableForm.name} onChange={(e) => setReceivableForm({ ...receivableForm, name: e.target.value })} placeholder="e.g. John Smith" className={inputCls} /></div>
+              <div className="col-span-2"><label className="block text-xs text-gray-500 mb-1">Description</label>
+                <input value={receivableForm.description} onChange={(e) => setReceivableForm({ ...receivableForm, description: e.target.value })} placeholder="e.g. Deposit for AB12 CDE" className={inputCls} /></div>
+              <div><label className="block text-xs text-gray-500 mb-1">Amount (£) *</label>
+                <input required type="number" step="0.01" value={receivableForm.amount} onChange={(e) => setReceivableForm({ ...receivableForm, amount: e.target.value })} className={inputCls} /></div>
+              <div><label className="block text-xs text-gray-500 mb-1">Due Date</label>
+                <input type="date" value={receivableForm.due_date} onChange={(e) => setReceivableForm({ ...receivableForm, due_date: e.target.value })} className={inputCls} /></div>
+              <div className="col-span-2"><label className="block text-xs text-gray-500 mb-1">Notes</label>
+                <input value={receivableForm.notes} onChange={(e) => setReceivableForm({ ...receivableForm, notes: e.target.value })} className={inputCls} /></div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <button type="button" onClick={() => { setShowAddReceivable(false); setEditingReceivable(null); }} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100">Cancel</button>
+                <button type="submit" disabled={saving} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">{saving ? "Saving…" : editingReceivable ? "Save Changes" : "Add"}</button>
+              </div>
+              {editingReceivable && (
+                <button type="button" onClick={() => deleteReceivable(editingReceivable.id)} className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50">Delete</button>
+              )}
+            </div>
+          </form>
+        )}
+
+        {receivables.length === 0 && !showAddReceivable ? (
+          <p className="px-5 py-6 text-sm text-gray-400 text-center">No receivables recorded.</p>
+        ) : (
+          <div className="divide-y">
+            {receivables.map((r) => (
+              <div key={r.id} onClick={() => startEditReceivable(r)}
+                className={`px-5 py-3 flex items-start justify-between gap-3 cursor-pointer hover:bg-gray-50 transition-colors ${editingReceivable?.id === r.id ? "bg-blue-50" : r.received ? "opacity-50" : ""}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-gray-800">{r.name}</span>
+                    {r.received
+                      ? <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Received {r.received_date ? fmtDate(r.received_date) : ""}</span>
+                      : r.due_date && new Date(r.due_date) < new Date()
+                        ? <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Overdue · {fmtDate(r.due_date)}</span>
+                        : r.due_date ? <span className="text-xs text-gray-400">Due {fmtDate(r.due_date)}</span> : null}
+                  </div>
+                  {r.description && <p className="text-xs text-gray-400 mt-0.5 truncate">{r.description}</p>}
+                  {r.notes && <p className="text-xs text-gray-400 truncate">{r.notes}</p>}
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-sm font-semibold text-orange-600">{fmt(Number(r.amount))}</span>
+                  {!r.received && (
+                    <button onClick={(e) => { e.stopPropagation(); markReceived(r); }}
+                      className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">
+                      ✓ Received
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
