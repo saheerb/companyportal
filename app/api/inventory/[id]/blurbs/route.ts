@@ -16,28 +16,35 @@ export async function POST(
     return NextResponse.json({ error: "GOOGLE_AI_API_KEY not configured" }, { status: 500 });
   }
 
-  const [{ rows }, { rows: settingsRows }] = await Promise.all([
-    pool.query(`SELECT * FROM inventory WHERE id = $1`, [parseInt(params.id)]),
+  const inventoryId = parseInt(params.id);
+  const [{ rows }, { rows: settingsRows }, { rows: listingRows }] = await Promise.all([
+    pool.query(`SELECT * FROM inventory WHERE id = $1`, [inventoryId]),
     pool.query(`SELECT car_slots FROM dealer_settings ORDER BY id ASC LIMIT 1`),
+    pool.query(`SELECT selling_price FROM car_listings WHERE inventory_id = $1 ORDER BY id DESC LIMIT 1`, [inventoryId]),
   ]);
   const car = rows[0];
   if (!car) return NextResponse.json({ error: "Car not found" }, { status: 404 });
 
   const count = settingsRows[0]?.car_slots ?? 5;
-  const useCases = (car.use_cases ?? []).join(", ");
+  const useCases: string[] = car.use_cases ?? [];
+  const sellingPrice = listingRows[0]?.selling_price;
+  const priceStr = sellingPrice ? `£${Number(sellingPrice).toLocaleString()}` : null;
+
   const prompt = `You are a car sales copywriter. Generate ${count} short, punchy marketing blurbs for this car that can be overlaid on a photo.
 
 Car: ${car.car_name ?? car.reg}
 Colour: ${car.colour ?? "unknown"}
 Mileage: ${car.mileage_bought ? `${car.mileage_bought.toLocaleString()} miles` : "unknown"}
-${useCases ? `Target buyers: ${useCases}` : ""}
+${priceStr ? `Price: ${priceStr}` : ""}
+${useCases.length > 0 ? `Vehicle use cases / target buyers: ${useCases.join(", ")}` : ""}
 
 Rules:
 - Each blurb is 4-8 words max
 - Punchy, benefit-focused, no fluff
+- Mix blurbs: some highlight price/value, some the car model, some the use cases (e.g. "Perfect family SUV", "Uber-ready, low miles")
 - Suitable for overlaying on a car photo in bold white text
 - Return ONLY a JSON array of exactly ${count} strings, nothing else
-Example: ["Low mileage, big savings", "Perfect family runabout"]`;
+Example: ["Low mileage, big savings", "Perfect family runabout", "PCO-ready and priced to sell"]`;
 
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });

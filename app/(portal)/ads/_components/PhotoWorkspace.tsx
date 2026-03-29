@@ -107,7 +107,7 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
     });
     fetch("/api/showroom-scenes").then(r => r.json()).then(setScenes);
     fetch("/api/dealer-settings").then(r => r.json()).then(setDealerSettings);
-    fetch(`/api/inventory/${inventoryId}`).then(r => r.json()).then((d: { car_blurbs?: string[] }) => setCarBlurbs(d.car_blurbs ?? []));
+    fetch(`/api/inventory/${inventoryId}`).then(r => r.json()).then((d: { car?: { car_blurbs?: string[] } }) => setCarBlurbs(d.car?.car_blurbs ?? []));
   }, [inventoryId]);
 
   useEffect(() => {
