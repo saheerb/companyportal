@@ -304,53 +304,29 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
   const sceneLabel = (key: string) => scenes.find(s => s.scene_key === key)?.label ?? key;
   const isBusy = generating || pendingResults.length > 0;
 
-  // Inline card overlays — single top bar matching fullscreen layout
+  // Inline card overlays — minimal: just nav, label, counter, download/delete, open editor
   function PhotoOverlays() {
     if (!selectedPhoto || !activeDisplayUrl) return null;
     return (
       <>
-        {/* Single top bar: compare | scene pills | download | delete */}
+        {/* Top bar: open editor | spacer | download | delete */}
         <div
           className="absolute top-0 inset-x-0 z-10 h-11 flex items-center gap-2 px-2 bg-black/70"
           onClick={e => e.stopPropagation()}
         >
-          {hasGenerated && !isBusy && (
-            <button
-              onClick={() => setShowOriginal(v => !v)}
-              className={`w-8 h-8 flex-shrink-0 rounded flex items-center justify-center transition-colors ${
-                showOriginal ? "bg-white text-gray-900" : "bg-white/20 text-white hover:bg-white/30"
-              }`}
-              title={showOriginal ? "Show generated" : "Compare with original"}
-            >
-              <IconCompare />
-            </button>
-          )}
+          <button
+            onClick={() => { setShowBanner(false); setIsFullscreen(true); }}
+            className="flex items-center gap-1.5 px-3 h-7 text-xs font-medium bg-white/20 text-white rounded hover:bg-white/30 whitespace-nowrap"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+            </svg>
+            Photo Studio
+          </button>
 
-          <div className="flex-1 flex gap-1.5 overflow-x-auto min-w-0" style={{ scrollbarWidth: "none" }}>
-            {isBusy ? (
-              <div className="flex items-center gap-1.5 text-white text-xs px-1">
-                <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" />
-                Generating…
-              </div>
-            ) : scenes.map(scene => (
-              <button
-                key={scene.scene_key}
-                onClick={() => handleGenerate(scene.scene_key)}
-                className="flex-shrink-0 px-2.5 py-1 text-xs rounded-full bg-white/20 text-white border border-white/25 hover:bg-white/35 whitespace-nowrap"
-              >
-                {scene.preview_emoji} {scene.label}
-              </button>
-            ))}
-          </div>
+          <div className="flex-1" />
 
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={() => { setShowBanner(v => !v); }}
-              className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${showBanner ? "bg-white text-gray-900" : "text-white hover:bg-white/20"}`}
-              title="Add banner"
-            >
-              <IconBanner />
-            </button>
+          <div className="flex items-center gap-1">
             <a
               href={`/api/proxy-image?url=${encodeURIComponent(activeDisplayUrl)}&download=1`}
               download
@@ -369,13 +345,6 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
             </button>
           </div>
         </div>
-
-        {/* Original badge */}
-        {showOriginal && (
-          <div className="absolute top-12 left-2 z-10 text-xs px-2 py-1 bg-white/90 text-gray-800 rounded font-medium">
-            Original
-          </div>
-        )}
 
         {/* Nav arrows */}
         {selectedIdx > 0 && (
@@ -490,24 +459,6 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
               </div>
             </div>
 
-            {/* Banner composer */}
-            {showBanner && activeDisplayUrl && (
-              <div className="border-t p-4 bg-gray-50">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Banner</p>
-                  <button onClick={() => setShowBanner(false)} className="text-xs text-gray-400 hover:text-gray-600">✕ Close</button>
-                </div>
-                <BannerComposer
-                  photoSrc={activeDisplayUrl}
-                  carBlurbs={carBlurbs}
-                  dealerBlurbs={dealerSettings?.dealer_blurbs ?? []}
-                  badgePath={dealerSettings?.badge_path}
-                  onSave={handleSaveBanner}
-                  saving={savingBanner}
-                />
-              </div>
-            )}
-
             {/* Drag-to-reorder photo strip */}
             {photos.length > 1 && (
               <div className="border-t p-3 bg-white">
@@ -596,6 +547,13 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
 
             {/* Action icons */}
             <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => setShowBanner(v => !v)}
+                className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${showBanner ? "bg-white text-gray-900" : "text-white hover:bg-white/20"}`}
+                title="Add banner"
+              >
+                <IconBanner />
+              </button>
               <a
                 href={`/api/proxy-image?url=${encodeURIComponent(activeDisplayUrl)}&download=1`}
                 download
@@ -613,7 +571,7 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
                 <IconTrash />
               </button>
               <button
-                onClick={() => setIsFullscreen(false)}
+                onClick={() => { setIsFullscreen(false); setShowBanner(false); }}
                 className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/20 rounded text-lg leading-none"
                 title="Close"
               >
@@ -623,7 +581,7 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
           </div>
 
           {/* Original badge */}
-          {showOriginal && (
+          {showOriginal && !showBanner && (
             <div className="absolute top-14 left-3 z-20 text-xs px-2 py-1 bg-white/90 text-gray-800 rounded font-medium">
               Original
             </div>
@@ -647,8 +605,26 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
             </button>
           )}
 
-          {/* Bottom version strip — only shown when AI versions exist */}
-          {completeResults.length > 0 && (
+          {/* Bottom: banner panel OR version strip */}
+          {showBanner ? (
+            <div
+              className="absolute bottom-0 inset-x-0 z-30 bg-gray-950/95 border-t border-white/10 overflow-y-auto"
+              style={{ maxHeight: "55vh" }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-4">
+                <p className="text-xs font-medium text-white/50 uppercase tracking-wide mb-3">Add Banner</p>
+                <BannerComposer
+                  photoSrc={activeDisplayUrl}
+                  carBlurbs={carBlurbs}
+                  dealerBlurbs={dealerSettings?.dealer_blurbs ?? []}
+                  badgePath={dealerSettings?.badge_path}
+                  onSave={handleSaveBanner}
+                  saving={savingBanner}
+                />
+              </div>
+            </div>
+          ) : completeResults.length > 0 && (
             <div
               className="absolute bottom-0 inset-x-0 z-20 bg-black/70 px-3 py-2 flex gap-2 overflow-x-auto"
               style={{ scrollbarWidth: "none" }}
