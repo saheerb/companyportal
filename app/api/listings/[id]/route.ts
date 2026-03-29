@@ -11,43 +11,36 @@ export async function GET(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const id = parseInt(params.id);
-  const [car, finance, records, listings] = await Promise.all([
+  const [listing, publications] = await Promise.all([
     pool.query(
-      `SELECT i.*, l.name AS lead_name, l.reg AS lead_reg
-       FROM inventory i LEFT JOIN leads l ON l.id = i.lead_id
-       WHERE i.id = $1`,
+      `SELECT cl.*, i.car_name, i.reg, i.colour, i.mileage_bought
+       FROM car_listings cl JOIN inventory i ON i.id = cl.inventory_id
+       WHERE cl.id = $1`,
       [id]
     ),
     pool.query(
-      `SELECT * FROM finance_entries WHERE inventory_id = $1 ORDER BY entry_date DESC`,
-      [id]
-    ),
-    pool.query(
-      `SELECT * FROM official_records WHERE inventory_id = $1 ORDER BY created_at DESC`,
-      [id]
-    ),
-    pool.query(
-      `SELECT * FROM car_listings WHERE inventory_id = $1 AND status != 'archived' ORDER BY created_at DESC`,
+      `SELECT * FROM listing_publications WHERE listing_id = $1`,
       [id]
     ),
   ]);
 
-  if (!car.rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!listing.rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const totalIncome = finance.rows
-    .filter((r) => r.type === "income")
-    .reduce((s: number, r) => s + parseFloat(r.amount), 0);
-  const totalExpenses = finance.rows
-    .filter((r) => r.type === "expense")
-    .reduce((s: number, r) => s + parseFloat(r.amount), 0);
+  // Get photos
+  const selectedIds: number[] | null = listing.rows[0].selected_photo_ids;
+  let photos: unknown[] = [];
+  if (selectedIds && selectedIds.length > 0) {
+    const { rows } = await pool.query(
+      `SELECT * FROM car_photos WHERE id = ANY($1::int[])`,
+      [selectedIds]
+    );
+    photos = rows;
+  }
+
   return NextResponse.json({
-    car: car.rows[0],
-    finance: finance.rows,
-    records: records.rows,
-    listings: listings.rows,
-    profit: totalIncome - totalExpenses,
-    total_costs: totalExpenses,
-    has_sale: totalIncome > 0,
+    listing: listing.rows[0],
+    publications: publications.rows,
+    photos,
   });
 }
 
@@ -61,11 +54,7 @@ export async function PATCH(
   const id = parseInt(params.id);
   const body = await req.json();
 
-  const allowed = [
-    "reg", "car_name", "colour", "mileage_bought", "purchase_price",
-    "purchase_date", "status", "location", "notes", "lead_id", "use_cases",
-  ];
-
+  const allowed = ["title", "description", "price", "selected_photo_ids", "status"];
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;
@@ -73,7 +62,7 @@ export async function PATCH(
   for (const key of allowed) {
     if (key in body) {
       sets.push(`${key} = $${idx++}`);
-      vals.push(body[key]);
+      vals.push(key === "price" ? parseFloat(body[key]) : body[key]);
     }
   }
   if (!sets.length) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
@@ -82,7 +71,7 @@ export async function PATCH(
   vals.push(id);
 
   const { rows } = await pool.query(
-    `UPDATE inventory SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`,
+    `UPDATE car_listings SET ${sets.join(", ")} WHERE id = $${idx} RETURNING *`,
     vals
   );
   if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -96,6 +85,9 @@ export async function DELETE(
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await pool.query(`DELETE FROM inventory WHERE id = $1`, [parseInt(params.id)]);
+  await pool.query(
+    `UPDATE car_listings SET status = 'archived', updated_at = NOW() WHERE id = $1`,
+    [parseInt(params.id)]
+  );
   return NextResponse.json({ ok: true });
 }

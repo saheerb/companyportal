@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { uploadToGCS } from "@/lib/google-storage";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -15,16 +14,12 @@ export async function POST(req: NextRequest) {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadsDir, { recursive: true });
-
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
   const filename = `${timestamp}_${safeName}`;
-  const filepath = path.join(uploadsDir, filename);
+  const mimeType = file.type || "image/jpeg";
 
-  await writeFile(filepath, buffer);
+  const url = await uploadToGCS(buffer, filename, mimeType);
 
-  return NextResponse.json({ path: `/uploads/${filename}`, filename });
+  return NextResponse.json({ path: url, filename });
 }
-

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-
 type Car = {
   id: number;
   reg: string;
@@ -18,6 +17,8 @@ type Car = {
   lead_name: string | null;
   lead_id: number | null;
   created_at: string;
+  use_cases: string[] | null;
+  car_blurbs: string[] | null;
 };
 
 type FinanceEntry = {
@@ -43,6 +44,10 @@ type Record_ = {
 };
 
 const STATUSES = ["Bought", "Being Prepped", "Listed for Sale", "Sold"];
+const USE_CASE_OPTIONS = [
+  "First Time Buyer", "Family Car", "Large Family", "Eco Conscious",
+  "Sports/Performance", "Business/Fleet",
+];
 const EXPENSE_CATEGORIES = ["car_purchase", "repair_service", "parts", "preparation", "delivery", "commission", "other"];
 const INCOME_CATEGORIES = ["car_sale", "other"];
 const DOC_TYPES = ["v5c", "mot", "contract", "invoice", "other"];
@@ -62,7 +67,8 @@ function fmt(n: number | null) {
 export default function CarDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [data, setData] = useState<{ car: Car; finance: FinanceEntry[]; records: Record_[]; profit: number; total_costs: number; has_sale: boolean } | null>(null);
+  type Listing = { id: number; title: string; status: string; price: number };
+  const [data, setData] = useState<{ car: Car; finance: FinanceEntry[]; records: Record_[]; listings: Listing[]; profit: number; total_costs: number; has_sale: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Car edit state
@@ -89,6 +95,14 @@ export default function CarDetailPage() {
   const [savingRecord, setSavingRecord] = useState(false);
 
   const [deleting, setDeleting] = useState(false);
+
+  // Use-case tags
+  const [togglingUseCase, setTogglingUseCase] = useState<string | null>(null);
+
+  // Car blurbs
+  const [generatingBlurbs, setGeneratingBlurbs] = useState(false);
+  const [editingBlurbs, setEditingBlurbs] = useState(false);
+  const [blurbsText, setBlurbsText] = useState("");
 
   async function load() {
     const res = await fetch(`/api/inventory/${id}`);
@@ -196,6 +210,41 @@ export default function CarDetailPage() {
     load();
   }
 
+  async function toggleUseCase(tag: string) {
+    if (!data) return;
+    setTogglingUseCase(tag);
+    const current = data.car.use_cases ?? [];
+    const updated = current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag];
+    await fetch(`/api/inventory/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ use_cases: updated }),
+    });
+    setTogglingUseCase(null);
+    load();
+  }
+
+  async function generateBlurbs() {
+    setGeneratingBlurbs(true);
+    const res = await fetch(`/api/inventory/${id}/blurbs`, { method: "POST" });
+    const d = await res.json() as { car_blurbs: string[] };
+    setGeneratingBlurbs(false);
+    if (d.car_blurbs && data) {
+      setData({ ...data, car: { ...data.car, car_blurbs: d.car_blurbs } });
+    }
+  }
+
+  async function saveBlurbs() {
+    const blurbs = blurbsText.split("\n").map((l) => l.trim()).filter(Boolean);
+    await fetch(`/api/inventory/${id}/blurbs`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ car_blurbs: blurbs }),
+    });
+    setEditingBlurbs(false);
+    load();
+  }
+
   async function deleteCar() {
     if (!confirm("Delete this car from inventory? This cannot be undone.")) return;
     setDeleting(true);
@@ -213,7 +262,7 @@ export default function CarDetailPage() {
   }
 
   if (!data) return null;
-  const { car, finance, records, profit, total_costs, has_sale } = data;
+  const { car, finance, records, listings, profit, total_costs, has_sale } = data;
   const ff = (key: keyof typeof financeForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setFinanceForm({ ...financeForm, [key]: e.target.value });
 
@@ -555,6 +604,127 @@ export default function CarDetailPage() {
                   )}
                   <span className="text-gray-400 text-xs">{new Date(r.created_at).toLocaleDateString("en-GB")}</span>
                   <button onClick={() => deleteRecord(r.id)} className="text-xs text-red-500 hover:underline">Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* ── Use-Case Tags ── */}
+      <div className="bg-white rounded-lg border p-5">
+        <div className="mb-3">
+          <h3 className="font-semibold">Vehicle Use Cases</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Tag this car to improve AI-generated descriptions</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {USE_CASE_OPTIONS.map((tag) => {
+            const active = (car.use_cases ?? []).includes(tag);
+            return (
+              <button
+                key={tag}
+                onClick={() => toggleUseCase(tag)}
+                disabled={togglingUseCase === tag}
+                className={`px-3 py-1.5 rounded-full text-sm border transition-colors disabled:opacity-50 ${
+                  active
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Car Blurbs ── */}
+      <div className="bg-white rounded-lg border p-5">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <h3 className="font-semibold">Car Blurbs</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Short lines for photo banners in Ads</p>
+          </div>
+          <div className="flex gap-2">
+            {!editingBlurbs && (
+              <button
+                onClick={() => {
+                  setBlurbsText((car.car_blurbs ?? []).join("\n"));
+                  setEditingBlurbs(true);
+                }}
+                className="text-xs border px-3 py-1.5 rounded hover:bg-gray-50"
+              >
+                Edit
+              </button>
+            )}
+            <button
+              onClick={generateBlurbs}
+              disabled={generatingBlurbs}
+              className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded hover:bg-purple-700 disabled:opacity-50"
+            >
+              {generatingBlurbs ? "Generating…" : "Generate with AI ✨"}
+            </button>
+          </div>
+        </div>
+
+        {editingBlurbs ? (
+          <div className="space-y-2">
+            <textarea
+              value={blurbsText}
+              onChange={(e) => setBlurbsText(e.target.value)}
+              rows={5}
+              placeholder="One blurb per line"
+              className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setEditingBlurbs(false)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">Cancel</button>
+              <button onClick={saveBlurbs} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
+            </div>
+          </div>
+        ) : (car.car_blurbs ?? []).length === 0 ? (
+          <p className="text-sm text-gray-400">No blurbs yet. Click &quot;Generate with AI&quot; to create some.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {(car.car_blurbs ?? []).map((b, i) => (
+              <span key={i} className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700">{b}</span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Ads & Listings ── */}
+      <div className="bg-white rounded-lg border p-5">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-semibold">Ads & Listings</h3>
+          <a
+            href={`/ads/new?inventory_id=${id}`}
+            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+          >
+            + Create Ad
+          </a>
+        </div>
+        {(listings ?? []).length === 0 ? (
+          <p className="text-sm text-gray-400">No ads created yet.</p>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {(listings ?? []).map((l) => (
+              <div key={l.id} className="py-3 flex items-center justify-between -mx-5 px-5">
+                <div>
+                  <p className="text-sm font-medium">{l.title}</p>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block ${
+                    l.status === "published" ? "bg-green-100 text-green-700" :
+                    l.status === "paused" ? "bg-yellow-100 text-yellow-700" :
+                    "bg-gray-100 text-gray-600"
+                  }`}>
+                    {l.status}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-gray-800">
+                    £{Number(l.price).toLocaleString()}
+                  </span>
+                  <a href={`/ads/${l.id}`} className="text-xs text-blue-600 hover:underline">
+                    Edit →
+                  </a>
                 </div>
               </div>
             ))}
