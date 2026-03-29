@@ -13,7 +13,7 @@ export async function PATCH(
   const id = parseInt(params.id);
   const body = await req.json();
 
-  const allowed = ["sort_order", "label", "active_showroom_id"];
+  const allowed = ["sort_order", "label", "active_showroom_id", "banner_blurb", "banner_show_badge"];
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;

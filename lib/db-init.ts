@@ -170,6 +170,8 @@ export async function initDb() {
   await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS use_cases TEXT[] DEFAULT '{}'`);
   await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS car_blurbs TEXT[] DEFAULT '{}'`);
   await pool.query(`ALTER TABLE car_photos ADD COLUMN IF NOT EXISTS active_showroom_id INTEGER REFERENCES car_showroom_photos(id) ON DELETE SET NULL`);
+  await pool.query(`ALTER TABLE car_photos ADD COLUMN IF NOT EXISTS banner_blurb TEXT`);
+  await pool.query(`ALTER TABLE car_photos ADD COLUMN IF NOT EXISTS banner_show_badge BOOLEAN NOT NULL DEFAULT FALSE`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS showroom_scenes (

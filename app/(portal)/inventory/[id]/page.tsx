@@ -297,6 +297,7 @@ export default function CarDetailPage() {
                 { label: "Car Name", key: "car_name", type: "text" },
                 { label: "Colour", key: "colour", type: "text" },
                 { label: "Mileage", key: "mileage_bought", type: "number" },
+                { label: "Purchase Price (£)", key: "purchase_price", type: "number" },
                 { label: "Purchase Date", key: "purchase_date", type: "date" },
                 { label: "Location", key: "location", type: "text" },
               ] as { label: string; key: keyof typeof carForm; type: string }[]).map(({ label, key, type }) => (
@@ -707,7 +708,7 @@ export default function CarDetailPage() {
         ) : (
           <div className="divide-y divide-gray-100">
             {(listings ?? []).map((l) => (
-              <div key={l.id} className="py-3 flex items-center justify-between -mx-5 px-5">
+              <a key={l.id} href={`/ads/${l.id}`} className="py-3 flex items-center justify-between -mx-5 px-5 hover:bg-gray-50 transition-colors">
                 <div>
                   <p className="text-sm font-medium">{l.title}</p>
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium mt-0.5 inline-block ${
@@ -722,11 +723,9 @@ export default function CarDetailPage() {
                   <span className="text-sm font-semibold text-gray-800">
                     £{Number(l.price).toLocaleString()}
                   </span>
-                  <a href={`/ads/${l.id}`} className="text-xs text-blue-600 hover:underline">
-                    Edit →
-                  </a>
+                  <span className="text-xs text-blue-600">Edit →</span>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         )}

@@ -20,14 +20,14 @@ export async function POST(
   const [{ rows }, { rows: settingsRows }, { rows: listingRows }] = await Promise.all([
     pool.query(`SELECT * FROM inventory WHERE id = $1`, [inventoryId]),
     pool.query(`SELECT car_slots FROM dealer_settings ORDER BY id ASC LIMIT 1`),
-    pool.query(`SELECT selling_price FROM car_listings WHERE inventory_id = $1 ORDER BY id DESC LIMIT 1`, [inventoryId]),
+    pool.query(`SELECT price FROM car_listings WHERE inventory_id = $1 ORDER BY id DESC LIMIT 1`, [inventoryId]),
   ]);
   const car = rows[0];
   if (!car) return NextResponse.json({ error: "Car not found" }, { status: 404 });
 
   const count = settingsRows[0]?.car_slots ?? 5;
   const useCases: string[] = car.use_cases ?? [];
-  const sellingPrice = listingRows[0]?.selling_price;
+  const sellingPrice = listingRows[0]?.price;
   const priceStr = sellingPrice ? `£${Number(sellingPrice).toLocaleString()}` : null;
 
   const prompt = `You are a car sales copywriter. Generate ${count} short, punchy marketing blurbs for this car that can be overlaid on a photo.
