@@ -96,6 +96,7 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
   const [showBanner, setShowBanner] = useState(false);
   const [savingBanner, setSavingBanner] = useState(false);
   const [showReorder, setShowReorder] = useState(false);
+  const [slideAnim, setSlideAnim] = useState<'from-right' | 'from-left'>('from-right');
   const [bannerBlurb, setBannerBlurb] = useState<string | null>(null);
   const [bannerShowBadge, setBannerShowBadge] = useState(false);
   const [dealerSettings, setDealerSettings] = useState<{ dealer_blurbs: string[]; badge_path: string | null } | null>(null);
@@ -273,10 +274,10 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
   }
 
   function navigatePrev() {
-    if (selectedIdx > 0) setSelectedPhotoId(photos[selectedIdx - 1].id);
+    if (selectedIdx > 0) { setSlideAnim('from-left'); setSelectedPhotoId(photos[selectedIdx - 1].id); }
   }
   function navigateNext() {
-    if (selectedIdx < photos.length - 1) setSelectedPhotoId(photos[selectedIdx + 1].id);
+    if (selectedIdx < photos.length - 1) { setSlideAnim('from-right'); setSelectedPhotoId(photos[selectedIdx + 1].id); }
   }
   function onTouchStart(e: React.TouchEvent) { touchStartX.current = e.touches[0].clientX; }
   function onTouchEnd(e: React.TouchEvent) {
@@ -516,7 +517,7 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
               onTouchEnd={onTouchEnd}
               onClick={() => setIsFullscreen(true)}
             >
-              <img src={proxyUrl(displayUrl, 900)} alt="Active" className="w-full h-full object-contain" />
+              <img key={selectedPhotoId} src={proxyUrl(displayUrl, 900)} alt="Active" className={`w-full h-full object-contain ${slideAnim === 'from-right' ? 'animate-slide-from-right' : 'animate-slide-from-left'}`} />
               {/* Banner overlay preview */}
               {(selectedPhoto.banner_blurb || selectedPhoto.banner_show_badge) && (
                 <div className="absolute bottom-0 inset-x-0 h-[10%] flex items-center justify-center bg-black/65 pointer-events-none z-10">
@@ -572,7 +573,7 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
           onTouchEnd={onTouchEnd}
         >
           {/* Photo fills screen — use original when banner panel is open so preview matches the saved result */}
-          <img src={proxyUrl(showBanner ? selectedPhoto.file_path : displayUrl, 1600)} alt="Active" className="w-full h-full object-contain" />
+          <img key={selectedPhotoId} src={proxyUrl(showBanner ? selectedPhoto.file_path : displayUrl, 1600)} alt="Active" className={`w-full h-full object-contain ${slideAnim === 'from-right' ? 'animate-slide-from-right' : 'animate-slide-from-left'}`} />
 
           {/* Banner overlay — always shown when photo has a banner; interactive preview while panel is open */}
           {(showBanner ? (bannerBlurb || bannerShowBadge) : (selectedPhoto.banner_blurb || selectedPhoto.banner_show_badge)) && (

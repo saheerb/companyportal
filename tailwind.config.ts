@@ -44,6 +44,20 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      animation: {
+        "slide-from-right": "slideFromRight 0.25s ease-out",
+        "slide-from-left": "slideFromLeft 0.25s ease-out",
+      },
+      keyframes: {
+        slideFromRight: {
+          "0%": { transform: "translateX(6%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+        slideFromLeft: {
+          "0%": { transform: "translateX(-6%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+      },
     },
   },
   plugins: [],
