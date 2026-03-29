@@ -55,6 +55,32 @@ function AddCarModal({
     lead_id: prefill?.lead_id ?? "",
   });
   const [saving, setSaving] = useState(false);
+  const [looking, setLooking] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+
+  async function handleLookup() {
+    if (!form.reg) return;
+    setLooking(true);
+    setLookupError("");
+    try {
+      const res = await fetch("/api/dvla-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reg: form.reg }),
+      });
+      const data = await res.json() as { make?: string; colour?: string; year?: number; error?: string };
+      if (!res.ok) { setLookupError(data.error ?? "Lookup failed"); return; }
+      setForm((f) => ({
+        ...f,
+        colour: data.colour ?? f.colour,
+        car_name: data.make ? (data.year ? `${data.year} ${data.make}` : data.make) : f.car_name,
+      }));
+    } catch {
+      setLookupError("Lookup failed");
+    } finally {
+      setLooking(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,15 +100,28 @@ function AddCarModal({
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
         <h3 className="text-lg font-semibold mb-4">Add Car to Inventory</h3>
         <form onSubmit={handleSubmit} className="space-y-3">
+          {lookupError && (
+            <p className="text-xs text-red-500 -mb-1">{lookupError}</p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Reg *</label>
-              <input required value={form.reg} onChange={(e) => setForm({ ...form, reg: e.target.value })}
-                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <div className="flex gap-1.5">
+                <input required value={form.reg}
+                  onChange={(e) => setForm({ ...form, reg: e.target.value.toUpperCase() })}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleLookup())}
+                  className="w-full border rounded px-2 py-1.5 text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                <button type="button" onClick={handleLookup} disabled={!form.reg || looking}
+                  className="shrink-0 px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-40">
+                  {looking ? "…" : "Lookup"}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">Fills make & colour from DVLA</p>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Car Name</label>
               <input value={form.car_name} onChange={(e) => setForm({ ...form, car_name: e.target.value })}
+                placeholder="e.g. Ford Focus Titanium"
                 className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
             <div>

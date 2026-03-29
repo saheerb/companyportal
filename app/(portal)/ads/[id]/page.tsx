@@ -78,7 +78,6 @@ export default function AdDetailPage() {
         title: editForm.title,
         description: editForm.description,
         price: parseFloat(editForm.price),
-        selected_photo_ids: [],
       }),
     });
     setSaving(false);
