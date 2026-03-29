@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import BannerComposer from "./BannerComposer";
 
 type Photo = {
   id: number;
@@ -48,6 +49,12 @@ const IconDownload = () => (
   </svg>
 );
 
+const IconBanner = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="17" x2="21" y2="17"/><line x1="8" y1="21" x2="8" y2="17"/>
+  </svg>
+);
+
 const IconCompare = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -70,9 +77,14 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
   const [labelInput, setLabelInput] = useState("");
   const [showOriginal, setShowOriginal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
+  const [savingBanner, setSavingBanner] = useState(false);
+  const [dealerSettings, setDealerSettings] = useState<{ dealer_blurbs: string[]; badge_path: string | null } | null>(null);
+  const [carBlurbs, setCarBlurbs] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartX = useRef<number>(0);
+  const dragSrcIdx = useRef<number>(-1);
 
   const loadPhotos = useCallback(async () => {
     const res = await fetch(`/api/car-photos?inventory_id=${inventoryId}`);
@@ -94,6 +106,8 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
       if (data.length > 0) setSelectedPhotoId(data[0].id);
     });
     fetch("/api/showroom-scenes").then(r => r.json()).then(setScenes);
+    fetch("/api/dealer-settings").then(r => r.json()).then(setDealerSettings);
+    fetch(`/api/inventory/${inventoryId}`).then(r => r.json()).then((d: { car_blurbs?: string[] }) => setCarBlurbs(d.car_blurbs ?? []));
   }, [inventoryId]);
 
   useEffect(() => {
@@ -240,6 +254,44 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
     else if (delta > 40) navigatePrev();
   }
 
+  function handleDragStart(idx: number) { dragSrcIdx.current = idx; }
+  function handleDragOver(e: React.DragEvent) { e.preventDefault(); }
+  async function handleDrop(dropIdx: number) {
+    const src = dragSrcIdx.current;
+    dragSrcIdx.current = -1;
+    if (src < 0 || src === dropIdx) return;
+    const reordered = [...photos];
+    const [moved] = reordered.splice(src, 1);
+    reordered.splice(dropIdx, 0, moved);
+    setPhotos(reordered);
+    onPhotosChange?.(reordered);
+    await fetch("/api/car-photos/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedIds: reordered.map(p => p.id) }),
+    });
+  }
+
+  async function handleSaveBanner(blob: Blob) {
+    if (!selectedPhotoId) return;
+    setSavingBanner(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", blob, "banner.jpg");
+      const { path } = await fetch("/api/upload", { method: "POST", body: fd }).then(r => r.json()) as { path: string };
+      await fetch(`/api/car-photos/${selectedPhotoId}/banner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_path: path }),
+      });
+      setShowBanner(false);
+      await loadResults(selectedPhotoId);
+      await loadPhotos();
+    } finally {
+      setSavingBanner(false);
+    }
+  }
+
   const selectedPhoto = photos.find(p => p.id === selectedPhotoId) ?? null;
   const selectedIdx = photos.findIndex(p => p.id === selectedPhotoId);
   const activeDisplayUrl = selectedPhoto ? (selectedPhoto.active_file_path ?? selectedPhoto.file_path) : null;
@@ -292,6 +344,13 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => { setShowBanner(v => !v); }}
+              className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${showBanner ? "bg-white text-gray-900" : "text-white hover:bg-white/20"}`}
+              title="Add banner"
+            >
+              <IconBanner />
+            </button>
             <a
               href={`/api/proxy-image?url=${encodeURIComponent(activeDisplayUrl)}&download=1`}
               download
@@ -430,6 +489,56 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
                 ))}
               </div>
             </div>
+
+            {/* Banner composer */}
+            {showBanner && activeDisplayUrl && (
+              <div className="border-t p-4 bg-gray-50">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Banner</p>
+                  <button onClick={() => setShowBanner(false)} className="text-xs text-gray-400 hover:text-gray-600">✕ Close</button>
+                </div>
+                <BannerComposer
+                  photoSrc={activeDisplayUrl}
+                  carBlurbs={carBlurbs}
+                  dealerBlurbs={dealerSettings?.dealer_blurbs ?? []}
+                  badgePath={dealerSettings?.badge_path}
+                  onSave={handleSaveBanner}
+                  saving={savingBanner}
+                />
+              </div>
+            )}
+
+            {/* Drag-to-reorder photo strip */}
+            {photos.length > 1 && (
+              <div className="border-t p-3 bg-white">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">All Photos — drag to reorder</p>
+                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                  {photos.map((photo, idx) => {
+                    const thumbSrc = photo.active_file_path ?? photo.file_path;
+                    const isCurrent = photo.id === selectedPhotoId;
+                    return (
+                      <div
+                        key={photo.id}
+                        draggable
+                        onDragStart={() => handleDragStart(idx)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(idx)}
+                        onClick={() => setSelectedPhotoId(photo.id)}
+                        className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 cursor-grab active:cursor-grabbing transition-all ${
+                          isCurrent ? "border-blue-500" : "border-gray-200 hover:border-gray-400"
+                        }`}
+                        title={photo.label ?? `Photo ${idx + 1}`}
+                      >
+                        <img src={proxyUrl(thumbSrc, 200)} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute bottom-0 inset-x-0 text-center text-white text-[9px] bg-black/50 py-0.5">
+                          {idx + 1}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
