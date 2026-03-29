@@ -23,6 +23,15 @@ type Photo = {
   sort_order?: number;
 };
 
+type VideoScene = {
+  id: number;
+  scene_key: string;
+  label: string;
+  preview_emoji: string;
+  prompt_template: string;
+  reference_paths: string[];
+};
+
 const STATUS_COLORS: Record<string, string> = {
   pending:    "bg-gray-100 text-gray-500",
   processing: "bg-blue-100 text-blue-600",
@@ -41,21 +50,25 @@ function proxyUrl(src: string, width?: number): string {
 export default function VideoPanel({
   inventoryId,
   carName,
+  price,
   photos,
 }: {
   inventoryId: number;
   carName?: string;
+  price?: number;
   photos: Photo[];
 }) {
   const [jobs, setJobs] = useState<VideoJob[]>([]);
-  const [prompt, setPrompt] = useState(
-    carName ? `Cinematic showcase of the ${carName} driving through scenic roads, dramatic lighting, smooth camera motion` : ""
-  );
-  const [photoId, setPhotoId] = useState<number | null>(null);
-  const [duration, setDuration] = useState<5 | 8>(5);
+  const [prompt, setPrompt] = useState("");
+  const [photoIds, setPhotoIds] = useState<number[]>([]);
+  const [duration, setDuration] = useState<1 | 5 | 8>(5);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showStudio, setShowStudio] = useState(false);
+  const [videoScenes, setVideoScenes] = useState<VideoScene[]>([]);
+  const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
+  const [mileage, setMileage] = useState<number | null>(null);
+  const [dealerName, setDealerName] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function loadJobs() {
@@ -66,6 +79,20 @@ export default function VideoPanel({
 
   useEffect(() => {
     loadJobs();
+    fetch("/api/video-scenes").then(r => r.json()).then((scenes: VideoScene[]) => {
+      setVideoScenes(scenes);
+      if (scenes.length > 0) {
+        setSelectedSceneKey(scenes[0].scene_key);
+        const tmpl = scenes[0].prompt_template.replace(/\{car\}/g, carName ?? "the car");
+        setPrompt(tmpl);
+      }
+    });
+    fetch(`/api/inventory/${inventoryId}`).then(r => r.json()).then((d: { car?: { mileage_bought?: number | null } }) => {
+      setMileage(d?.car?.mileage_bought ?? null);
+    });
+    fetch("/api/dealer-settings").then(r => r.json()).then((d: { dealer_name?: string } | null) => {
+      setDealerName(d?.dealer_name ?? null);
+    });
   }, [inventoryId]);
 
   useEffect(() => {
@@ -95,9 +122,10 @@ export default function VideoPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           inventory_id: inventoryId,
-          prompt: prompt.trim(),
-          photo_id: photoId ?? undefined,
+          prompt: carContext ? `${prompt.trim()}\n\n${carContext}` : prompt.trim(),
+          photo_id: photoIds[0] ?? undefined,
           duration_seconds: duration,
+          reference_paths: refPaths.length > 0 ? refPaths : undefined,
           ...(testMode ? { test: true } : {}),
         }),
       });
@@ -113,7 +141,20 @@ export default function VideoPanel({
     }
   }
 
-  const selectedPhoto = photos.find(p => p.id === photoId) ?? null;
+  function togglePhoto(id: number) {
+    setPhotoIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+  }
+
+  const selectedScene = videoScenes.find(s => s.scene_key === selectedSceneKey) ?? null;
+  const refPaths = selectedScene?.reference_paths ?? [];
+
+  // Car context appended to every prompt
+  const carContextParts: string[] = [];
+  if (carName) carContextParts.push(`Car: ${carName}`);
+  if (price) carContextParts.push(`Price: £${price.toLocaleString("en-GB")}`);
+  if (mileage) carContextParts.push(`Mileage: ${mileage.toLocaleString("en-GB")} miles`);
+  if (dealerName) carContextParts.push(`Dealer: ${dealerName}`);
+  const carContext = carContextParts.join(" | ");
 
   return (
     <>
@@ -179,29 +220,21 @@ export default function VideoPanel({
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
 
-              {/* Photo selection */}
+              {/* Photos to animate */}
               {photos.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-white/50 uppercase tracking-wide mb-3">
-                    Reference Photo <span className="normal-case font-normal text-white/30">(optional — Veo will animate it)</span>
+                  <p className="text-xs font-medium text-white/50 uppercase tracking-wide mb-1">
+                    Photos to Animate
                   </p>
-                  <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                    {/* None option */}
-                    <button
-                      onClick={() => setPhotoId(null)}
-                      className={`flex-shrink-0 w-20 h-20 rounded-lg border-2 flex items-center justify-center transition-all ${
-                        photoId === null ? "border-purple-500 bg-purple-900/30" : "border-white/15 bg-white/5 hover:border-white/30"
-                      }`}
-                    >
-                      <span className="text-xs text-white/50">None</span>
-                    </button>
+                  <p className="text-xs text-white/30 mb-3">Tap to select — the first selected photo is used as the reference image for Veo.</p>
+                  <div className="flex gap-2 flex-wrap">
                     {photos.map((photo, idx) => {
                       const thumbSrc = photo.active_file_path ?? photo.file_path;
-                      const isSelected = photo.id === photoId;
+                      const isSelected = photoIds.includes(photo.id);
                       return (
                         <div
                           key={photo.id}
-                          onClick={() => setPhotoId(isSelected ? null : photo.id)}
+                          onClick={() => togglePhoto(photo.id)}
                           className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
                             isSelected ? "border-purple-500 shadow-lg shadow-purple-500/30" : "border-white/15 hover:border-white/40"
                           }`}
@@ -223,11 +256,57 @@ export default function VideoPanel({
                       );
                     })}
                   </div>
-                  {selectedPhoto && (
-                    <p className="text-xs text-purple-400 mt-2">
-                      Using: {selectedPhoto.label ?? `Photo ${photos.indexOf(selectedPhoto) + 1}`}
-                    </p>
-                  )}
+                  <p className="text-xs text-white/40 mt-2">
+                    {photoIds.length === 0
+                      ? "No photo selected — will generate without reference."
+                      : photoIds.length === 1
+                      ? "1 photo selected as reference."
+                      : `${photoIds.length} photos selected — first one used as reference.`}
+                  </p>
+                </div>
+              )}
+
+              {/* Scene reference images */}
+              {refPaths.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-white/50 uppercase tracking-wide mb-1">Scene Reference Images</p>
+                  <p className="text-xs text-white/30 mb-3">From Settings — always sent to Veo with this scene.</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {refPaths.map((refPath, idx) => (
+                      <div key={`ref-${idx}`} className="relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 border-purple-500/40">
+                        <img src={proxyUrl(refPath, 200)} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute bottom-0 inset-x-0 text-center text-white text-[9px] bg-black/60 py-0.5">
+                          Ref {idx + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Scene presets */}
+              {videoScenes.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-white/50 uppercase tracking-wide mb-2">Scene</p>
+                  <div className="flex flex-wrap gap-2">
+                    {videoScenes.map(scene => (
+                      <button
+                        key={scene.scene_key}
+                        onClick={() => {
+                          setSelectedSceneKey(scene.scene_key);
+                          setPrompt(scene.prompt_template.replace(/\{car\}/g, carName ?? "the car"));
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                          selectedSceneKey === scene.scene_key
+                            ? "bg-purple-600 border-purple-500 text-white"
+                            : "border-white/20 text-white/70 hover:border-white/40 hover:bg-white/5"
+                        }`}
+                      >
+                        <span>{scene.preview_emoji}</span>
+                        <span>{scene.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -236,7 +315,7 @@ export default function VideoPanel({
                 <label className="block text-xs font-medium text-white/50 uppercase tracking-wide mb-2">Prompt</label>
                 <textarea
                   value={prompt}
-                  onChange={e => setPrompt(e.target.value)}
+                  onChange={e => { setPrompt(e.target.value); setSelectedSceneKey(null); }}
                   rows={4}
                   className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2.5 text-sm text-white placeholder-white/30 focus:ring-2 focus:ring-purple-500 focus:outline-none resize-none"
                   placeholder="Describe the video you want to generate…"
@@ -248,7 +327,7 @@ export default function VideoPanel({
                 <div>
                   <p className="text-xs font-medium text-white/50 uppercase tracking-wide mb-2">Duration</p>
                   <div className="flex gap-1">
-                    {([5, 8] as const).map(d => (
+                    {([1, 5, 8] as const).map(d => (
                       <button
                         key={d}
                         onClick={() => setDuration(d)}
@@ -256,7 +335,7 @@ export default function VideoPanel({
                           duration === d ? "bg-white text-gray-900 border-white" : "border-white/20 text-white/70 hover:border-white/40"
                         }`}
                       >
-                        {d}s
+                        {d}s{d === 1 ? " (test)" : ""}
                       </button>
                     ))}
                   </div>

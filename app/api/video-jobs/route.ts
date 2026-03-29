@@ -22,27 +22,43 @@ async function runVideoJob(jobId: number) {
 
   try {
     // Build Veo request
-    type VeoInstance = { prompt: string; image?: { bytesBase64Encoded: string; mimeType: string } };
+    type VeoInstance = {
+      prompt: string;
+      image?: { bytesBase64Encoded: string };
+      video?: { bytesBase64Encoded: string };
+    };
     const instance: VeoInstance = { prompt: job.prompt };
 
+    // veo-2.0-generate-001 via Gemini API supports image-to-video only (not video-to-video)
     if (job.photo_file_path) {
       try {
-        const { buffer, mimeType } = await fetchFileAsBuffer(job.photo_file_path);
-        instance.image = { bytesBase64Encoded: buffer.toString("base64"), mimeType };
-      } catch {
-        // continue without photo
+        const { buffer } = await fetchFileAsBuffer(job.photo_file_path);
+        instance.image = { bytesBase64Encoded: buffer.toString("base64") };
+      } catch (e) {
+        console.warn(`[video-job ${jobId}] Failed to load photo:`, e);
       }
     }
+
+    const veoBody = {
+      instances: [instance],
+      parameters: { sampleCount: 1, durationSeconds: job.duration_seconds, aspectRatio: "16:9" },
+    };
+
+    console.log(`[video-job ${jobId}] Sending to Veo:`, JSON.stringify({
+      prompt: instance.prompt,
+      hasImage: !!instance.image,
+      hasVideo: !!instance.video,
+      referenceVideoPath: job.reference_video_path ?? null,
+      photoFilePath: job.photo_file_path ?? null,
+      duration: job.duration_seconds,
+    }, null, 2));
 
     const startRes = await fetch(
       `${VEO_API}/models/veo-2.0-generate-001:predictLongRunning?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          instances: [instance],
-          parameters: { sampleCount: 1, durationSeconds: job.duration_seconds, aspectRatio: "16:9" },
-        }),
+        body: JSON.stringify(veoBody),
       }
     );
 
@@ -53,6 +69,7 @@ async function runVideoJob(jobId: number) {
 
     const startData = await startRes.json() as { name?: string };
     const operationName = startData.name;
+    console.log(`[video-job ${jobId}] Veo operation started:`, operationName);
     if (!operationName) throw new Error("No operation name returned from Veo");
 
     await pool.query(
@@ -60,40 +77,69 @@ async function runVideoJob(jobId: number) {
       [operationName, jobId]
     );
 
-    // Poll until done (max 10 min = 120 × 5s)
+    // Poll until done (max 15 min = 180 × 5s)
     let done = false;
     let attempts = 0;
     let videoUri: string | null = null;
     let videoMime = "video/mp4";
+    let lastPollBody = "";
 
-    while (!done && attempts < 120) {
+    while (!done && attempts < 180) {
       await new Promise(r => setTimeout(r, 5000));
       attempts++;
 
       const pollRes = await fetch(`${VEO_API}/${operationName}?key=${apiKey}`);
-      if (!pollRes.ok) continue;
+      if (!pollRes.ok) {
+        const errText = await pollRes.text().catch(() => "");
+        lastPollBody = `HTTP ${pollRes.status}: ${errText}`;
+        continue;
+      }
 
       const pollData = await pollRes.json() as {
         done?: boolean;
-        response?: { videos?: { video?: { uri?: string; mimeType?: string } }[] };
+        response?: {
+          videos?: { video?: { uri?: string; mimeType?: string } }[];
+          generatedSamples?: { video?: { uri?: string } }[];
+          generateVideoResponse?: {
+            generatedSamples?: { video?: { uri?: string } }[];
+          };
+        };
         error?: { message: string };
       };
+
+      lastPollBody = JSON.stringify(pollData).slice(0, 500);
 
       if (pollData.error) throw new Error(pollData.error.message);
 
       if (pollData.done) {
         done = true;
         const videos = pollData.response?.videos ?? [];
-        videoUri = videos[0]?.video?.uri ?? null;
-        videoMime = videos[0]?.video?.mimeType ?? "video/mp4";
+        const samples =
+          pollData.response?.generateVideoResponse?.generatedSamples ??
+          pollData.response?.generatedSamples ??
+          [];
+        if (videos.length > 0) {
+          videoUri = videos[0]?.video?.uri ?? null;
+          videoMime = videos[0]?.video?.mimeType ?? "video/mp4";
+        } else if (samples.length > 0) {
+          videoUri = samples[0]?.video?.uri ?? null;
+        }
       }
     }
 
-    if (!videoUri) throw new Error("Video generation timed out or returned no URI");
+    if (!videoUri) {
+      const reason = done ? `Veo returned no video URI. Last response: ${lastPollBody}` : `Veo timed out after 15 min. Last poll: ${lastPollBody}`;
+      throw new Error(reason);
+    }
 
     // Fetch video bytes and upload to GCS
-    const videoRes = await fetch(`${videoUri}?key=${apiKey}`);
-    if (!videoRes.ok) throw new Error("Failed to download video from Veo");
+    // URI may already contain query params (e.g. ?alt=media), so append key correctly
+    const downloadUrl = videoUri.includes("?") ? `${videoUri}&key=${apiKey}` : `${videoUri}?key=${apiKey}`;
+    const videoRes = await fetch(downloadUrl);
+    if (!videoRes.ok) {
+      const errText = await videoRes.text().catch(() => "");
+      throw new Error(`Failed to download video from Veo (HTTP ${videoRes.status}): ${errText.slice(0, 200)}`);
+    }
     const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
     const ext = videoMime === "video/webm" ? "webm" : "mp4";
     const filename = `video_${jobId}_${Date.now()}.${ext}`;
@@ -136,11 +182,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "GOOGLE_AI_API_KEY not configured" }, { status: 500 });
   }
 
-  const { inventory_id, prompt, photo_id, duration_seconds, test } = await req.json() as {
+  const { inventory_id, prompt, photo_id, duration_seconds, reference_video_path, test } = await req.json() as {
     inventory_id: number;
     prompt: string;
     photo_id?: number;
     duration_seconds?: number;
+    reference_video_path?: string;
     test?: boolean;
   };
 
@@ -150,21 +197,26 @@ export async function POST(req: NextRequest) {
 
   const duration = duration_seconds ?? 5;
 
+  // Veo requires minimum 5s — enforce for real jobs
+  if (!test && duration < 5) {
+    return NextResponse.json({ error: "Minimum duration for real video generation is 5 seconds. Use Test mode for 1s." }, { status: 400 });
+  }
+
   // Test mode: instantly complete with a sample video, no API call
   if (test) {
     const sampleUrl = "https://www.w3schools.com/html/mov_bbb.mp4";
     const { rows } = await pool.query(
-      `INSERT INTO video_jobs (inventory_id, prompt, photo_id, duration_seconds, status, file_path)
-       VALUES ($1, $2, $3, $4, 'complete', $5) RETURNING *`,
-      [inventory_id, prompt, photo_id ?? null, duration, sampleUrl]
+      `INSERT INTO video_jobs (inventory_id, prompt, photo_id, duration_seconds, reference_video_path, status, file_path)
+       VALUES ($1, $2, $3, $4, $5, 'complete', $6) RETURNING *`,
+      [inventory_id, prompt, photo_id ?? null, duration, reference_video_path ?? null, sampleUrl]
     );
     return NextResponse.json(rows[0]);
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO video_jobs (inventory_id, prompt, photo_id, duration_seconds)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [inventory_id, prompt, photo_id ?? null, duration]
+    `INSERT INTO video_jobs (inventory_id, prompt, photo_id, duration_seconds, reference_video_path)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [inventory_id, prompt, photo_id ?? null, duration, reference_video_path ?? null]
   );
   const job = rows[0];
 

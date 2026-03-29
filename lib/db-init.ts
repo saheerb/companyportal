@@ -174,6 +174,38 @@ export async function initDb() {
   await pool.query(`ALTER TABLE car_photos ADD COLUMN IF NOT EXISTS banner_show_badge BOOLEAN NOT NULL DEFAULT FALSE`);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS video_scenes (
+      id              SERIAL      PRIMARY KEY,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      scene_key       TEXT        UNIQUE NOT NULL,
+      label           TEXT        NOT NULL,
+      preview_emoji   TEXT        NOT NULL DEFAULT '🎬',
+      prompt_template TEXT        NOT NULL,
+      is_active       BOOLEAN     NOT NULL DEFAULT TRUE,
+      sort_order      INTEGER     NOT NULL DEFAULT 0
+    )
+  `);
+
+  const defaultVideoScenes = [
+    { key: 'cinematic', label: 'Cinematic', emoji: '🎬', sort: 0, prompt: 'Cinematic showcase of the car driving through scenic countryside roads, dramatic golden-hour lighting, smooth slow-motion camera tracking shot, professional automotive film style.' },
+    { key: 'urban', label: 'Urban Drive', emoji: '🌆', sort: 1, prompt: 'The car cruising through a vibrant city at dusk, neon reflections on wet roads, dynamic camera angles, cinematic depth of field, premium automotive advertisement style.' },
+    { key: 'showroom', label: 'Showroom Reveal', emoji: '🏢', sort: 2, prompt: 'Elegant car reveal in a luxury showroom, rotating spotlight, polished floor reflections, slow dramatic camera orbit around the vehicle, premium brand advertisement style.' },
+    { key: 'action', label: 'Action', emoji: '💨', sort: 3, prompt: 'High-energy driving sequence on an open road, fast cuts between exterior and interior shots, dramatic acceleration, dynamic camera movement, motorsport advertisement style.' },
+  ];
+  for (const s of defaultVideoScenes) {
+    await pool.query(
+      `INSERT INTO video_scenes (scene_key, label, preview_emoji, prompt_template, sort_order)
+       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (scene_key) DO NOTHING`,
+      [s.key, s.label, s.emoji, s.prompt, s.sort]
+    );
+  }
+
+  await pool.query(`ALTER TABLE dealer_settings ADD COLUMN IF NOT EXISTS video_reference_paths TEXT[] DEFAULT '{}'`);
+  await pool.query(`ALTER TABLE video_scenes ADD COLUMN IF NOT EXISTS reference_paths TEXT[] DEFAULT '{}'`);
+  await pool.query(`ALTER TABLE video_scenes ADD COLUMN IF NOT EXISTS reference_video_path TEXT`);
+  await pool.query(`ALTER TABLE video_jobs ADD COLUMN IF NOT EXISTS reference_video_path TEXT`);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS showroom_scenes (
       id              SERIAL      PRIMARY KEY,
       created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),

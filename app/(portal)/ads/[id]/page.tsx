@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import PhotoWorkspace from "../_components/PhotoWorkspace";
 import PlatformSelector from "../_components/PlatformSelector";
-import VideoPanel from "../_components/VideoPanel";
 
 type Listing = {
   id: number;
@@ -237,16 +236,6 @@ export default function AdDetailPage() {
         />
       </div>
 
-      {/* Videos */}
-      <div className="bg-white rounded-lg border p-5">
-        <h3 className="font-semibold mb-1">Videos</h3>
-        <p className="text-xs text-gray-400 mb-4">Generate AI video clips for this car using Veo 2. Videos take 1-3 minutes.</p>
-        <VideoPanel
-          inventoryId={listing.inventory_id}
-          carName={listing.car_name ?? listing.reg}
-          photos={photosList}
-        />
-      </div>
 
       {/* Publishing */}
       <div className="bg-white rounded-lg border p-5">

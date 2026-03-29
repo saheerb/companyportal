@@ -16,7 +16,7 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const allowed = ["dealer_name", "dealer_prompt", "dealer_blurbs", "badge_path", "car_slots", "dealer_slots"];
+  const allowed = ["dealer_name", "dealer_prompt", "dealer_blurbs", "badge_path", "car_slots", "dealer_slots", "video_reference_paths"];
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;
