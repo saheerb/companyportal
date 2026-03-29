@@ -252,69 +252,71 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
   const sceneLabel = (key: string) => scenes.find(s => s.scene_key === key)?.label ?? key;
   const isBusy = generating || pendingResults.length > 0;
 
-  // Inline card overlays (unchanged layout)
+  // Inline card overlays — single top bar matching fullscreen layout
   function PhotoOverlays() {
     if (!selectedPhoto || !activeDisplayUrl) return null;
     return (
       <>
-        {/* Scene pills */}
+        {/* Single top bar: compare | scene pills | download | delete */}
         <div
-          className="absolute top-9 inset-x-0 flex gap-1.5 px-2 py-1.5 overflow-x-auto"
-          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%)", scrollbarWidth: "none" }}
+          className="absolute top-0 inset-x-0 z-10 h-11 flex items-center gap-2 px-2 bg-black/70"
+          onClick={e => e.stopPropagation()}
         >
-          {isBusy ? (
-            <div className="flex items-center gap-1.5 text-white text-xs px-2 py-1">
-              <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" />
-              Generating…
-            </div>
-          ) : scenes.map(scene => (
-            <button
-              key={scene.scene_key}
-              onClick={e => { e.stopPropagation(); handleGenerate(scene.scene_key); }}
-              className="flex-shrink-0 px-2.5 py-1 text-xs rounded-full bg-black/55 text-white border border-white/25 hover:bg-black/75 whitespace-nowrap"
-            >
-              {scene.preview_emoji} {scene.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Top-left: compare toggle */}
-        <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
           {hasGenerated && !isBusy && (
             <button
-              onClick={e => { e.stopPropagation(); setShowOriginal(v => !v); }}
-              className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
-                showOriginal ? "bg-white text-gray-900" : "bg-black/60 text-white hover:bg-black/80"
+              onClick={() => setShowOriginal(v => !v)}
+              className={`w-8 h-8 flex-shrink-0 rounded flex items-center justify-center transition-colors ${
+                showOriginal ? "bg-white text-gray-900" : "bg-white/20 text-white hover:bg-white/30"
               }`}
               title={showOriginal ? "Show generated" : "Compare with original"}
             >
               <IconCompare />
             </button>
           )}
-          {showOriginal && (
-            <span className="text-xs px-2 py-1 bg-white/90 text-gray-800 rounded font-medium">Original</span>
-          )}
+
+          <div className="flex-1 flex gap-1.5 overflow-x-auto min-w-0" style={{ scrollbarWidth: "none" }}>
+            {isBusy ? (
+              <div className="flex items-center gap-1.5 text-white text-xs px-1">
+                <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" />
+                Generating…
+              </div>
+            ) : scenes.map(scene => (
+              <button
+                key={scene.scene_key}
+                onClick={() => handleGenerate(scene.scene_key)}
+                className="flex-shrink-0 px-2.5 py-1 text-xs rounded-full bg-white/20 text-white border border-white/25 hover:bg-white/35 whitespace-nowrap"
+              >
+                {scene.preview_emoji} {scene.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <a
+              href={`/api/proxy-image?url=${encodeURIComponent(activeDisplayUrl)}&download=1`}
+              download
+              onClick={e => e.stopPropagation()}
+              className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/20 rounded"
+              title="Download"
+            >
+              <IconDownload />
+            </a>
+            <button
+              onClick={() => handleDeleteSlot(selectedPhoto.id)}
+              className="w-8 h-8 flex items-center justify-center text-white hover:bg-red-500/60 rounded"
+              title="Delete photo"
+            >
+              <IconTrash />
+            </button>
+          </div>
         </div>
 
-        {/* Top-right: download + delete */}
-        <div className="absolute top-2 right-2 z-10 flex gap-1.5">
-          <a
-            href={`/api/proxy-image?url=${encodeURIComponent(activeDisplayUrl)}&download=1`}
-            download
-            onClick={e => e.stopPropagation()}
-            className="w-7 h-7 bg-black/60 text-white rounded flex items-center justify-center hover:bg-black/80"
-            title="Download"
-          >
-            <IconDownload />
-          </a>
-          <button
-            onClick={e => { e.stopPropagation(); handleDeleteSlot(selectedPhoto.id); }}
-            className="w-7 h-7 bg-black/60 text-white rounded flex items-center justify-center hover:bg-red-600/80"
-            title="Delete photo"
-          >
-            <IconTrash />
-          </button>
-        </div>
+        {/* Original badge */}
+        {showOriginal && (
+          <div className="absolute top-12 left-2 z-10 text-xs px-2 py-1 bg-white/90 text-gray-800 rounded font-medium">
+            Original
+          </div>
+        )}
 
         {/* Nav arrows */}
         {selectedIdx > 0 && (
