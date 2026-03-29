@@ -28,9 +28,10 @@ type Scene = {
   preview_emoji: string;
 };
 
-function proxyUrl(src: string): string {
+function proxyUrl(src: string, width?: number): string {
   if (src.startsWith("https://storage.googleapis.com/")) {
-    return `/api/proxy-image?url=${encodeURIComponent(src)}`;
+    const w = width ? `&w=${width}` : "";
+    return `/api/proxy-image?url=${encodeURIComponent(src)}${w}`;
   }
   return src;
 }
@@ -399,7 +400,7 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
               onTouchEnd={onTouchEnd}
               onClick={() => setIsFullscreen(true)}
             >
-              <img src={proxyUrl(displayUrl)} alt="Active" className="w-full h-full object-contain" />
+              <img src={proxyUrl(displayUrl, 900)} alt="Active" className="w-full h-full object-contain" />
               <PhotoOverlays />
             </div>
 
@@ -439,7 +440,7 @@ export default function PhotoWorkspace({ inventoryId, onPhotosChange }: {
           onTouchEnd={onTouchEnd}
         >
           {/* Photo fills screen */}
-          <img src={proxyUrl(displayUrl)} alt="Active" className="w-full h-full object-contain" />
+          <img src={proxyUrl(displayUrl, 1600)} alt="Active" className="w-full h-full object-contain" />
 
           {/* Single top bar: compare | scene pills | counter | download | delete | close */}
           <div
@@ -589,7 +590,7 @@ function VersionThumb({
 }) {
   function px(s: string) {
     return s.startsWith("https://storage.googleapis.com/")
-      ? `/api/proxy-image?url=${encodeURIComponent(s)}`
+      ? `/api/proxy-image?url=${encodeURIComponent(s)}&w=200`
       : s;
   }
   return (

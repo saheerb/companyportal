@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import sharp from "sharp";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -18,10 +19,25 @@ export async function GET(req: NextRequest) {
   const res = await fetch(url);
   if (!res.ok) return new NextResponse("Failed to fetch image", { status: 502 });
 
-  const buffer = await res.arrayBuffer();
-  const contentType = res.headers.get("content-type") ?? "image/jpeg";
-
   const download = req.nextUrl.searchParams.get("download");
+  const widthParam = req.nextUrl.searchParams.get("w");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let buffer = Buffer.from(await res.arrayBuffer() as any);
+  let contentType = res.headers.get("content-type") ?? "image/jpeg";
+
+  // Resize only for display (not downloads), when ?w= is specified
+  if (!download && widthParam) {
+    const width = Math.min(parseInt(widthParam, 10), 2400);
+    if (!isNaN(width) && width > 0) {
+      buffer = await sharp(buffer)
+        .resize({ width, withoutEnlargement: true })
+        .jpeg({ quality: 82 })
+        .toBuffer();
+      contentType = "image/jpeg";
+    }
+  }
+
   const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
 
   return new NextResponse(buffer, {
