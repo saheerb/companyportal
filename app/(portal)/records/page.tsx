@@ -11,10 +11,12 @@ type OfficialRecord = {
   storage_ref: string | null;
   notes: string | null;
   created_at: string;
+  record_date: string | null;
   car_reg: string | null;
   car_name: string | null;
   investment_name: string | null;
   created_by: string | null;
+  created_by_label: string | null;
 };
 
 type Car = { id: number; reg: string; car_name: string };
@@ -30,6 +32,8 @@ function UploadModal({ onClose, onSaved, prefillInvestmentId }: { onClose: () =>
     investment_id: prefillInvestmentId ?? "",
     storage_ref: "",
     notes: "",
+    record_date: new Date().toISOString().slice(0, 10),
+    created_by_label: "",
   });
   const [file, setFile] = useState<File | null>(null);
   const [cars, setCars] = useState<Car[]>([]);
@@ -112,6 +116,17 @@ function UploadModal({ onClose, onSaved, prefillInvestmentId }: { onClose: () =>
                 placeholder="https://drive.google.com/..."
                 className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>
+              <input required type="date" value={form.record_date} onChange={(e) => setForm({ ...form, record_date: e.target.value })}
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Uploaded by</label>
+              <input value={form.created_by_label} onChange={(e) => setForm({ ...form, created_by_label: e.target.value })}
+                placeholder="Your name or leave blank"
+                className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
               <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -135,6 +150,7 @@ function RecordsContent() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [docTypeFilter, setDocTypeFilter] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const searchParams = useSearchParams();
   const inventoryId = searchParams.get("inventory_id");
   const investmentId = searchParams.get("investment_id");
@@ -201,38 +217,62 @@ function RecordsContent() {
         <div className="space-y-2">
           {records.length === 0 ? (
             <div className="bg-white rounded-lg border p-8 text-center text-gray-400">No records found.</div>
-          ) : records.map((r) => (
-            <div key={r.id} className="bg-white rounded-lg border p-4 flex items-center gap-4">
-              <div className="w-14 text-center">
-                <span className="text-xs font-bold uppercase bg-gray-100 px-2 py-1 rounded">{r.doc_type}</span>
+          ) : records.map((r) => {
+            const isExpanded = expandedId === r.id;
+            const displayDate = r.record_date
+              ? new Date(r.record_date).toLocaleDateString("en-GB")
+              : new Date(r.created_at).toLocaleDateString("en-GB");
+            const displayBy = r.created_by_label || r.created_by;
+            return (
+              <div key={r.id} className="bg-white rounded-lg border overflow-hidden">
+                <div
+                  className="p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                >
+                  <div className="w-14 text-center shrink-0">
+                    <span className="text-xs font-bold uppercase bg-gray-100 px-2 py-1 rounded">{r.doc_type}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">{r.doc_label}</p>
+                    {r.car_reg && (
+                      <p className="text-xs text-gray-400 font-mono">{r.car_reg} {r.car_name}</p>
+                    )}
+                    {r.investment_name && (
+                      <p className="text-xs text-purple-500">Investment: {r.investment_name}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0">
+                    <span>{displayDate}</span>
+                    {displayBy && <span className="text-gray-300">{displayBy}</span>}
+                    <span className="text-gray-300">{isExpanded ? "▲" : "▼"}</span>
+                  </div>
+                </div>
+                {isExpanded && (
+                  <div className="border-t px-4 py-3 bg-gray-50 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 text-sm flex-wrap">
+                      {r.file_path && (
+                        <a href={r.file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
+                          Download
+                        </a>
+                      )}
+                      {r.storage_ref && (
+                        <a href={r.storage_ref} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
+                          External Link
+                        </a>
+                      )}
+                      {r.notes && <span className="text-xs text-gray-500">{r.notes}</span>}
+                    </div>
+                    <button
+                      onClick={() => deleteRecord(r.id)}
+                      className="text-xs text-red-500 border border-red-200 px-3 py-1 rounded hover:bg-red-50 shrink-0"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-sm">{r.doc_label}</p>
-                {r.car_reg && (
-                  <p className="text-xs text-gray-400 font-mono">{r.car_reg} {r.car_name}</p>
-                )}
-                {r.investment_name && (
-                  <p className="text-xs text-purple-500">Investment: {r.investment_name}</p>
-                )}
-                {r.notes && <p className="text-xs text-gray-400 mt-0.5">{r.notes}</p>}
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                {r.file_path && (
-                  <a href={r.file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
-                    Download
-                  </a>
-                )}
-                {r.storage_ref && (
-                  <a href={r.storage_ref} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
-                    External Link
-                  </a>
-                )}
-                <span className="text-gray-400 text-xs">{new Date(r.created_at).toLocaleDateString("en-GB")}</span>
-                <span className="text-gray-300 text-xs">{r.created_by}</span>
-                <button onClick={() => deleteRecord(r.id)} className="text-xs text-red-500 hover:underline">Delete</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

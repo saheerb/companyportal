@@ -154,6 +154,8 @@ export async function initDb() {
   `);
 
   await pool.query(`ALTER TABLE official_records ADD COLUMN IF NOT EXISTS investment_id INTEGER REFERENCES investments(id) ON DELETE SET NULL`);
+  await pool.query(`ALTER TABLE official_records ADD COLUMN IF NOT EXISTS record_date DATE`);
+  await pool.query(`ALTER TABLE official_records ADD COLUMN IF NOT EXISTS created_by_label TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS car_showroom_photos (

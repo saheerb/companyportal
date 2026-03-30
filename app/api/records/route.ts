@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
      LEFT JOIN inventory i ON i.id = r.inventory_id
      LEFT JOIN investments inv ON inv.id = r.investment_id
      ${where}
-     ORDER BY r.created_at DESC`,
+     ORDER BY COALESCE(r.record_date, r.created_at::date) DESC, r.created_at DESC`,
     values
   );
   return NextResponse.json(rows);
@@ -39,18 +39,19 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { doc_type, doc_label, inventory_id, investment_id, lead_id, file_path, storage_ref, notes } = body;
+  const { doc_type, doc_label, inventory_id, investment_id, lead_id, file_path, storage_ref, notes, record_date, created_by_label } = body;
 
   if (!doc_type || !doc_label) {
     return NextResponse.json({ error: "doc_type and doc_label required" }, { status: 400 });
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO official_records (doc_type, doc_label, inventory_id, investment_id, lead_id, file_path, storage_ref, notes, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO official_records (doc_type, doc_label, inventory_id, investment_id, lead_id, file_path, storage_ref, notes, created_by, record_date, created_by_label)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
     [doc_type, doc_label, inventory_id || null, investment_id || null, lead_id || null,
-     file_path || null, storage_ref || null, notes, session.user?.name ?? null]
+     file_path || null, storage_ref || null, notes, session.user?.name ?? null,
+     record_date || null, created_by_label || null]
   );
   return NextResponse.json(rows[0], { status: 201 });
 }
