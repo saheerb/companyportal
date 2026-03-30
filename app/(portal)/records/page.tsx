@@ -272,11 +272,7 @@ function RecordsContent() {
               : new Date(r.created_at).toLocaleDateString("en-GB");
             const displayBy = r.created_by_label || r.created_by;
             return (
-              <div
-                key={r.id}
-                className="bg-white rounded-lg border p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => setEditingRecord(r)}
-              >
+              <div key={r.id} className="bg-white rounded-lg border p-4 flex items-center gap-4">
                 <div className="w-14 text-center shrink-0">
                   <span className="text-xs font-bold uppercase bg-gray-100 px-2 py-1 rounded">{r.doc_type}</span>
                 </div>
@@ -290,12 +286,29 @@ function RecordsContent() {
                   )}
                   {r.notes && <p className="text-xs text-gray-400 mt-0.5">{r.notes}</p>}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0">
-                  {(r.file_path || r.storage_ref) && (
-                    <span className="text-blue-400">📎</span>
-                  )}
-                  <span>{displayDate}</span>
+                <div className="flex items-center gap-3 text-xs shrink-0">
+                  <span className="text-gray-400">{displayDate}</span>
                   {displayBy && <span className="text-gray-300">{displayBy}</span>}
+                  {r.file_path && (
+                    <a href={r.file_path} target="_blank" rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-blue-600 hover:underline font-medium">
+                      Download
+                    </a>
+                  )}
+                  {r.storage_ref && (
+                    <a href={r.storage_ref} target="_blank" rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-blue-600 hover:underline font-medium">
+                      Link
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setEditingRecord(r)}
+                    className="px-2.5 py-1 text-xs border rounded hover:bg-gray-50 text-gray-600"
+                  >
+                    Edit
+                  </button>
                 </div>
               </div>
             );
