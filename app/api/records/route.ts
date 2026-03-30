@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest) {
   const { id, ...fields } = body;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  const allowed = ["doc_type", "doc_label", "inventory_id", "investment_id", "lead_id", "file_path", "storage_ref", "notes"];
+  const allowed = ["doc_type", "doc_label", "inventory_id", "investment_id", "lead_id", "file_path", "storage_ref", "notes", "record_date", "created_by_label"];
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;
