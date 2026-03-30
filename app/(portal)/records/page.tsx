@@ -148,8 +148,16 @@ function RecordModal({
               </label>
               <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="w-full text-sm border rounded px-2 py-1.5" />
-              {isEdit && record?.file_path && !file && (
-                <p className="text-xs text-gray-400 mt-1">Current file kept unless you pick a new one</p>
+              {isEdit && record?.file_path && (
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-gray-400">{file ? "New file selected" : "Current file kept unless you pick a new one"}</p>
+                  {!file && (
+                    <a href={record.file_path} target="_blank" rel="noreferrer"
+                      className="text-xs text-blue-600 hover:underline font-medium">
+                      Download current file ↗
+                    </a>
+                  )}
+                </div>
               )}
             </div>
             <div className="col-span-2">

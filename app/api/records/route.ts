@@ -70,7 +70,11 @@ export async function PATCH(req: NextRequest) {
   let idx = 1;
 
   for (const key of allowed) {
-    if (key in fields) { sets.push(`${key} = $${idx++}`); vals.push(fields[key]); }
+    if (key in fields) {
+      sets.push(`${key} = $${idx++}`);
+      const v = fields[key];
+      vals.push((key === "inventory_id" || key === "investment_id" || key === "lead_id") && v === "" ? null : v);
+    }
   }
   if (!sets.length) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
