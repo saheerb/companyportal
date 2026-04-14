@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const { rows: existing } = await pool.query(
     `SELECT id FROM showroom_scenes ORDER BY sort_order DESC LIMIT 1`
   );
-  const sort_order = existing[0] ? existing[0].sort_order + 1 : 0;
+  const sort_order = existing[0] ? (parseInt(existing[0].sort_order) || 0) + 1 : 0;
 
   const { rows } = await pool.query(
     `INSERT INTO showroom_scenes (scene_key, label, preview_emoji, prompt_template, sort_order)
