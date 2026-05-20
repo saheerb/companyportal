@@ -13,8 +13,11 @@ const pool =
       process.env.NODE_ENV === "production"
         ? { rejectUnauthorized: false }
         : false,
+    max: 5,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
   });
 
-if (process.env.NODE_ENV !== "production") globalThis._pgPool = pool;
+globalThis._pgPool = pool;
 
 export default pool;
